@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { StorageService, addStorageListener } from './storage';
+import { SupabaseService } from './supabase';
 
 export interface OfflineSyncStatus {
   isOnline: boolean;
@@ -45,10 +46,14 @@ export class OfflineManager {
   /**
    * Catat adanya perubahan offline
    */
-  static recordLocalChange(_tableName: string): void {
+  static recordLocalChange(tableName: string): void {
     try {
       const count = this.getPendingChangeCount() + 1;
       localStorage.setItem(offlineChangeKey, String(count));
+      // Jika online, jadwalkan auto sync ke Supabase
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        SupabaseService.triggerAutoSync(tableName);
+      }
     } catch {}
   }
 
@@ -74,6 +79,25 @@ export class OfflineManager {
     message: string;
   }> {
     this.resetPendingChangeCount();
+
+    // Jika online dan Supabase terkonfigurasi, dorong ke Supabase
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      const client = SupabaseService.getClient();
+      if (client) {
+        try {
+          const res = await SupabaseService.pushAllToSupabase(true);
+          if (showNotification && res.success) {
+            StorageService.addNotification({
+              title: 'Sinkronisasi Supabase Sukses',
+              message: 'Data perangkat mengajar telah disinkronkan ke Supabase Cloud.',
+              type: 'sync',
+            });
+          }
+          return res;
+        } catch {}
+      }
+    }
+
     if (showNotification) {
       StorageService.addNotification({
         title: 'Penyimpanan Lokal Aktif',

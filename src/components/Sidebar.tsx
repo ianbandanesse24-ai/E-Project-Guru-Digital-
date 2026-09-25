@@ -221,6 +221,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Users,
       badge: pendingRequestsCount > 0 ? `${pendingRequestsCount} Pending` : undefined,
     },
+    {
+      id: 'admin_sync',
+      label: 'Integrasi Supabase & Cloud',
+      icon: Database,
+    },
   ];
 
   // Filter items by search query

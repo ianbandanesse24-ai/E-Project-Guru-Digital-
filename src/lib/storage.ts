@@ -591,9 +591,6 @@ export class StorageService {
   static autoCleanLegacyMockData(): void {
     try {
       if (!isStorageAvailable()) return;
-      // Pastikan seluruh hubungan & kredensial Supabase terhapus bersih dari browser
-      window.localStorage.removeItem('agk_supabase_config');
-
       const isCleaned = window.localStorage.getItem('agk_fresh_clean_v4');
       if (!isCleaned) {
         this.resetAllDataToFresh();
@@ -1584,19 +1581,17 @@ export class StorageService {
   }
 
   static getSupabaseConfig(): SupabaseConfig {
-    return {
-      url: '',
-      apiKey: '',
-      autoSync: false,
+    return loadFromStorage<SupabaseConfig>(KEYS.SUPABASE_CONFIG, {
+      url: 'https://kydlbpiyfwqrakxomsrx.supabase.co',
+      apiKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZGxicGl5ZndxcmFreG9tc3J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMjAzMTQsImV4cCI6MjEwNTg5NjMxNH0.I9xT02ipV-3TIEOnDeoW1dehXZ3v4zEJI1-HY0WTbhc',
+      autoSync: true,
       syncStatus: 'idle',
-    };
+    });
   }
 
-  static saveSupabaseConfig(_config: SupabaseConfig): void {
-    // Supabase has been permanently disconnected
-    try {
-      window.localStorage.removeItem('agk_supabase_config');
-    } catch {}
+  static saveSupabaseConfig(config: SupabaseConfig): void {
+    saveToStorage(KEYS.SUPABASE_CONFIG, config);
   }
 
   static getAcademicYear(userId?: string): string {

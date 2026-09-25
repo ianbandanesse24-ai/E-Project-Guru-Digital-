@@ -48,11 +48,12 @@ import { StorageService, DEFAULT_ADMIN } from '../lib/storage';
 import { ExportService } from '../lib/exportUtils';
 import { CPUploaderAndAnalyzer } from '../components/CPUploaderAndAnalyzer';
 import { AdminApiKeyManager } from '../components/AdminApiKeyManager';
+import { SupabaseSyncView } from './SupabaseSyncView';
 import { handleNumberInputFocus, parseNumberInput } from '../lib/inputUtils';
 import { AMDLogo } from '../components/AMDLogo';
 
 interface AdminDashboardViewProps {
-  initialSubTab?: 'dashboard' | 'tokens' | 'access' | 'api_key' | 'settings';
+  initialSubTab?: 'dashboard' | 'tokens' | 'access' | 'sync' | 'api_key' | 'settings';
   onNavigate?: (tab: string) => void;
 }
 
@@ -549,6 +550,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             >
               <Key className="w-3.5 h-3.5 text-violet-400" />
               <span>API Key</span>
+            </button>
+            <button
+              onClick={() => setSubTab('sync')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center space-x-1.5 ${
+                subTab === 'sync' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <DatabaseZap className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Supabase DB</span>
             </button>
           </div>
         </div>
@@ -1705,6 +1715,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {subTab === 'api_key' && (
         <div className="space-y-4">
           <AdminApiKeyManager />
+        </div>
+      )}
+
+      {/* SUBTAB: SUPABASE DATABASE SYNC */}
+      {subTab === 'sync' && (
+        <div className="space-y-4">
+          <SupabaseSyncView />
         </div>
       )}
     </div>

@@ -40,6 +40,7 @@ import { AdminDashboardView } from './views/AdminDashboardView';
 import { AdminApiKeyManager } from './components/AdminApiKeyManager';
 import { SaranView } from './views/SaranView';
 import { WelcomeSyncView } from './views/WelcomeSyncView';
+import { SupabaseSyncView } from './views/SupabaseSyncView';
 import { KelasSiswaView } from './views/KelasSiswaView';
 import { AnalisisCPDistributionView } from './views/AnalisisCPDistributionView';
 import { ProfilGuruMapelView } from './views/ProfilGuruMapelView';
@@ -271,6 +272,10 @@ export default function App() {
       case 'admin_access':
       case 'admin_user_approval':
         return { label: 'Otorisasi Akun Guru', category: 'Admin Panel' };
+      case 'admin_sync':
+      case 'supabase_sync':
+      case 'admin_supabase':
+        return { label: 'Integrasi Supabase Cloud', category: 'Admin Panel' };
       case 'saran':
       case 'feedback':
         return { label: 'Kotak Saran & Masukan', category: 'Bantuan' };
@@ -437,6 +442,16 @@ export default function App() {
         return <DashboardHomeView currentUser={currentUser} onNavigate={setActiveView} onOpenSchoolProfile={() => setShowSchoolModal(true)} theme={theme} />;
       }
       return <AdminDashboardView initialSubTab="access" />;
+    }
+    if (
+      activeView === 'admin_sync' ||
+      activeView === 'supabase_sync' ||
+      activeView === 'admin_supabase'
+    ) {
+      if (currentUser.role !== 'admin') {
+        return <DashboardHomeView currentUser={currentUser} onNavigate={setActiveView} onOpenSchoolProfile={() => setShowSchoolModal(true)} theme={theme} />;
+      }
+      return <SupabaseSyncView />;
     }
 
     if (activeView === 'saran' || activeView === 'feedback') {
