@@ -223,8 +223,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'admin_sync',
-      label: 'Integrasi Supabase & Cloud',
+      label: 'Sinkronisasi Supabase & GitHub',
       icon: Database,
+      badge: 'Auto-Sync',
+      desc: 'Dual Cloud & Git Backup',
     },
   ];
 

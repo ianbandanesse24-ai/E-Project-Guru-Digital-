@@ -1582,9 +1582,9 @@ export class StorageService {
 
   static getSupabaseConfig(): SupabaseConfig {
     return loadFromStorage<SupabaseConfig>(KEYS.SUPABASE_CONFIG, {
-      url: 'https://kydlbpiyfwqrakxomsrx.supabase.co',
+      url: 'https://phbrqacielziyyzxntdn.supabase.co',
       apiKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZGxicGl5ZndxcmFreG9tc3J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMjAzMTQsImV4cCI6MjEwNTg5NjMxNH0.I9xT02ipV-3TIEOnDeoW1dehXZ3v4zEJI1-HY0WTbhc',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoYnJxYWNpZWx6aXl5enhudGRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMzA5NDksImV4cCI6MjEwNTkwNjk0OX0.ugDxD9wUExDip21FN1awprTtGcpbg2YrMpoIKtOql8A',
       autoSync: true,
       syncStatus: 'idle',
     });

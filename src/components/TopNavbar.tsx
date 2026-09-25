@@ -115,7 +115,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         { id: 'admin_api_key', label: 'Manajemen API Key AMD AI', badge: 'AMD' },
         { id: 'admin_tokens', label: 'Manajemen Token & Kuota AI' },
         { id: 'admin_access', label: 'Otorisasi Akun Guru' },
-        { id: 'admin_sync', label: 'Integrasi Supabase Cloud' },
+        { id: 'admin_sync', label: 'Sinkronisasi Supabase & GitHub', badge: 'Auto' },
         { id: 'upload_cp_master', label: 'Upload CP Master' },
       ],
     });

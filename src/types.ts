@@ -516,6 +516,19 @@ export interface SupabaseConfig {
   errorMessage?: string;
 }
 
+export interface GitHubConfig {
+  owner: string;
+  repo: string;
+  branch: string;
+  token?: string;
+  autoSync: boolean;
+  lastSyncedAt?: string;
+  syncStatus?: 'idle' | 'syncing' | 'success' | 'error';
+  errorMessage?: string;
+  lastCommitSha?: string;
+  lastCommitUrl?: string;
+}
+
 export interface CPMaterialItem {
   id: string;
   semester: 1 | 2;

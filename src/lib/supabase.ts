@@ -3,9 +3,9 @@ import { StorageService, addStorageListener } from './storage';
 import { SupabaseConfig } from '../types';
 
 const SUPABASE_CONFIG_KEY = 'agk_supabase_config';
-export const DEFAULT_SUPABASE_URL = 'https://kydlbpiyfwqrakxomsrx.supabase.co';
+export const DEFAULT_SUPABASE_URL = 'https://phbrqacielziyyzxntdn.supabase.co';
 export const DEFAULT_SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZGxicGl5ZndxcmFreG9tc3J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMjAzMTQsImV4cCI6MjEwNTg5NjMxNH0.I9xT02ipV-3TIEOnDeoW1dehXZ3v4zEJI1-HY0WTbhc';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoYnJxYWNpZWx6aXl5enhudGRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMzA5NDksImV4cCI6MjEwNTkwNjk0OX0.ugDxD9wUExDip21FN1awprTtGcpbg2YrMpoIKtOql8A';
 
 export class SupabaseService {
   private static clientInstance: SupabaseClient | null = null;
@@ -29,11 +29,17 @@ export class SupabaseService {
       if (saved) {
         const parsed = JSON.parse(saved);
         // Otomatis migrasi jika masih menggunakan instance lama
-        const isOldInstance = parsed.url && parsed.url.includes('cbzooularbymwhoxyaxo');
+        const isOldInstance =
+          parsed.url &&
+          (parsed.url.includes('cbzooularbymwhoxyaxo') ||
+            parsed.url.includes('kydlbpiyfwqrakxomsrx') ||
+            !parsed.url.includes('phbrqacielziyyzxntdn'));
+
         const resolvedUrl = isOldInstance || !parsed.url ? envUrl : parsed.url;
-        const resolvedKey = isOldInstance || (!parsed.apiKey && !parsed.anonKey)
-          ? envKey
-          : parsed.apiKey || parsed.anonKey;
+        const resolvedKey =
+          isOldInstance || (!parsed.apiKey && !parsed.anonKey)
+            ? envKey
+            : parsed.apiKey || parsed.anonKey;
 
         this.cachedConfig = {
           url: resolvedUrl,
@@ -86,6 +92,86 @@ export class SupabaseService {
   /**
    * Mengambil Supabase Client
    */
+  /**
+   * Mengambil Supabase Client dengan dukungan Resilient Proxy Fetch
+   */
+  static createResilientClient(url: string, apiKey: string): SupabaseClient {
+    return createClient(url, apiKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+      global: {
+        fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+          const urlStr =
+            typeof input === 'string'
+              ? input
+              : input instanceof URL
+              ? input.toString()
+              : (input as Request).url;
+
+          try {
+            const res = await window.fetch(input, init);
+            return res;
+          } catch (err: any) {
+            const isFetchFail =
+              err?.name === 'TypeError' ||
+              err?.message?.includes('fetch') ||
+              err?.message?.includes('NetworkError') ||
+              err?.message?.includes('Failed to fetch');
+
+            if (isFetchFail && typeof window !== 'undefined') {
+              try {
+                let bodyContent: any = init?.body;
+                if (typeof bodyContent === 'object' && bodyContent !== null && !(bodyContent instanceof FormData)) {
+                  bodyContent = JSON.stringify(bodyContent);
+                }
+
+                const headersObj: Record<string, string> = {};
+                if (init?.headers) {
+                  if (init.headers instanceof Headers) {
+                    init.headers.forEach((val, key) => {
+                      headersObj[key] = val;
+                    });
+                  } else if (Array.isArray(init.headers)) {
+                    init.headers.forEach(([k, v]) => {
+                      headersObj[k] = v;
+                    });
+                  } else {
+                    Object.assign(headersObj, init.headers);
+                  }
+                }
+
+                const proxyRes = await window.fetch('/api/supabase/proxy', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    url: urlStr,
+                    method: init?.method || 'GET',
+                    headers: headersObj,
+                    body: bodyContent,
+                  }),
+                });
+
+                if (proxyRes.ok) {
+                  const proxyData = await proxyRes.json();
+                  return new Response(proxyData.body, {
+                    status: proxyData.status,
+                    statusText: proxyData.statusText || 'OK',
+                    headers: new Headers(proxyData.headers || {}),
+                  });
+                }
+              } catch (proxyErr) {
+                console.warn('Proxy fallback notice:', proxyErr);
+              }
+            }
+            throw err;
+          }
+        },
+      },
+    });
+  }
+
   static getClient(): SupabaseClient | null {
     const config = this.getConfig();
     if (!config.url || !config.apiKey) {
@@ -94,12 +180,7 @@ export class SupabaseService {
 
     if (!this.clientInstance) {
       try {
-        this.clientInstance = createClient(config.url, config.apiKey, {
-          auth: {
-            persistSession: true,
-            autoRefreshToken: true,
-          },
-        });
+        this.clientInstance = this.createResilientClient(config.url, config.apiKey);
       } catch (err) {
         console.error('Error creating Supabase client:', err);
         return null;
@@ -154,8 +235,8 @@ export class SupabaseService {
     customKey?: string
   ): Promise<{ success: boolean; message: string; latencyMs?: number }> {
     const config = this.getConfig();
-    const url = customUrl || config.url;
-    const key = customKey || config.apiKey;
+    const url = (customUrl || config.url || '').trim();
+    const key = (customKey || config.apiKey || '').trim();
 
     if (!url || !key) {
       return {
@@ -165,8 +246,31 @@ export class SupabaseService {
     }
 
     const startTime = performance.now();
+
+    // 1. Prioritaskan server connection test untuk mengatasi TypeError: Failed to fetch di browser / iframe
     try {
-      const client = createClient(url, key);
+      if (typeof window !== 'undefined') {
+        const serverCheck = await window.fetch('/api/supabase/test-connection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, apiKey: key }),
+        });
+        if (serverCheck.ok) {
+          const res = await serverCheck.json();
+          return {
+            success: res.success,
+            latencyMs: res.latencyMs || Math.round(performance.now() - startTime),
+            message: res.message,
+          };
+        }
+      }
+    } catch {
+      // Lanjut ke pemeriksaan client-side jika server belum merespons
+    }
+
+    // 2. Client-side check dengan resilient fetch
+    try {
+      const client = this.createResilientClient(url, key);
       const { data, error } = await client.from('school_profile').select('id').limit(1);
 
       const latencyMs = Math.round(performance.now() - startTime);
@@ -533,7 +637,41 @@ export class SupabaseService {
         stats,
       };
     } catch (err: any) {
-      console.error('Error during Supabase sync:', err);
+      console.warn('Direct client sync failed, attempting server proxy fallback...', err);
+      // Fallback ke server-side push endpoint jika client-side fetch terhambat
+      try {
+        if (typeof window !== 'undefined') {
+          const config = this.getConfig();
+          const serverPushRes = await window.fetch('/api/supabase/push-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: config.url,
+              apiKey: config.apiKey,
+              tables: this.buildAllTablesPayload(),
+            }),
+          });
+          if (serverPushRes.ok) {
+            const serverData = await serverPushRes.json();
+            if (serverData.success) {
+              const now = new Date().toLocaleString('id-ID');
+              this.saveConfig({
+                syncStatus: 'success',
+                lastSyncedAt: now,
+                errorMessage: undefined,
+              });
+              return {
+                success: true,
+                message: `Sinkronisasi ke Supabase Cloud Berhasil! (${now})`,
+                stats: serverData.stats,
+              };
+            }
+          }
+        }
+      } catch (fallbackErr) {
+        console.error('Server push fallback also failed:', fallbackErr);
+      }
+
       this.saveConfig({
         syncStatus: 'error',
         errorMessage: err?.message || 'Gagal sinkronisasi data ke Supabase.',
@@ -543,6 +681,265 @@ export class SupabaseService {
         message: `Sinkronisasi gagal: ${err?.message || 'Periksa apakah skema tabel Supabase telah dijalankan.'}`,
       };
     }
+  }
+
+  /**
+   * Mengumpulkan seluruh data lokal menjadi payload siap kirim ke Supabase
+   */
+  static buildAllTablesPayload(): Record<string, any[]> {
+    const profile = StorageService.getSchoolProfile();
+    const users = StorageService.getUsers();
+    const classes = StorageService.getClasses();
+    const students = StorageService.getStudents();
+    const attendance = StorageService.getAttendance();
+    const schedules = StorageService.getSchedule();
+    const agendas = StorageService.getAgenda();
+    const journals = StorageService.getJournal();
+    const dailyGrades = StorageService.getDailyGrades();
+    const unifiedGrades = StorageService.getGrades();
+    const aiDocs = StorageService.getAIDocuments();
+    const cpDists = StorageService.getCPDistributions();
+    const logs = StorageService.getAccessLogs();
+
+    const tables: Record<string, any[]> = {};
+
+    if (profile) {
+      tables['school_profile'] = [
+        {
+          id: 'primary_school',
+          school_name: profile.schoolName || 'Sekolah Tanpa Nama',
+          npsn: profile.npsn || '',
+          address: profile.address || '',
+          headmaster_name: profile.headmasterName || '',
+          headmaster_nip: profile.headmasterNip || '',
+          teacher_name: profile.teacherName || '',
+          teacher_nip: profile.teacherNip || '',
+          city: profile.city || '',
+          semester: profile.semester || 'Ganjil',
+          academic_year: profile.academicYear || '2026/2027',
+          logo_url: profile.logoUrl || null,
+          updated_at: new Date().toISOString(),
+        },
+      ];
+    }
+
+    if (users && users.length > 0) {
+      tables['users'] = users.map((u) => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role || 'guru',
+        status: u.status || 'approved',
+        school: u.school || '',
+        subject: u.subject || '',
+        phone: u.phone || '',
+        auth_code: u.authCode || null,
+        request_date: u.requestDate || null,
+        approval_date: u.approvalDate || null,
+        approved_by: u.approvedBy || null,
+        last_login: u.lastLogin || null,
+        monthly_ai_clicks: u.monthlyAIClicks || 0,
+        monthly_ai_limit: u.monthlyAILimit || 35,
+        monthly_tokens_used: u.monthlyTokensUsed || 0,
+        monthly_tokens_limit: u.monthlyTokensLimit || 500000,
+        subscription_status: u.subscriptionStatus || 'active',
+        payment_status: u.paymentStatus || 'paid',
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    if (classes && classes.length > 0) {
+      tables['classes'] = classes.map((c) => ({
+        id: c.id,
+        name: c.name,
+        level: c.level || 'Fase E',
+        grade: c.grade || 10,
+        academic_year: c.academicYear || '2026/2027',
+        homeroom_teacher: c.homeroomTeacher || '',
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    if (students && students.length > 0) {
+      tables['students'] = students.map((s) => ({
+        id: s.id,
+        nis: s.nis || '',
+        nisn: s.nisn || '',
+        name: s.name,
+        gender: s.gender || 'L',
+        class_id: s.classId || null,
+        class_name: s.className || '',
+        parent_phone: s.parentPhone || '',
+        parent_name: s.parentName || '',
+        address: s.address || '',
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    if (attendance && attendance.length > 0) {
+      tables['attendance_records'] = attendance.map((a) => ({
+        id: a.id,
+        date: a.date,
+        class_id: a.classId || null,
+        class_name: a.className,
+        subject: a.subject,
+        meeting_number: a.meetingNumber || 1,
+        semester: a.semester || 'Ganjil',
+        academic_year: a.academicYear || '2026/2027',
+        records: a.records || [],
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    if (schedules && schedules.length > 0) {
+      tables['schedules'] = schedules.map((sch) => ({
+        id: sch.id,
+        day: sch.day,
+        period: sch.period || '',
+        start_time: sch.startTime || '',
+        end_time: sch.endTime || '',
+        class_name: sch.className,
+        subject: sch.subject,
+        room: sch.room || '',
+        notes: sch.notes || '',
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    if (agendas && agendas.length > 0) {
+      tables['teaching_agendas'] = agendas.map((ag) => ({
+        id: ag.id,
+        date: ag.date,
+        time: ag.time || '',
+        class_name: ag.className,
+        subject: ag.subject,
+        meeting_number: ag.meetingNumber || 1,
+        topic: ag.topic || '',
+        activities: ag.activities || '',
+        student_attendance_summary: ag.studentAttendanceSummary || '',
+        reflection: ag.reflection || '',
+        follow_up: ag.followUp || '',
+        status: ag.status || 'Selesai',
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    if (journals && journals.length > 0) {
+      tables['teaching_journals'] = journals.map((j) => ({
+        id: j.id,
+        date: j.date,
+        class_name: j.className,
+        subject: j.subject,
+        tp_covered: j.tpCovered || '',
+        learning_progress: j.learningProgress || '',
+        obstacles: j.obstacles || '',
+        solution: j.solution || '',
+        teacher_notes: j.teacherNotes || '',
+        signature_verified: j.signatureVerified || false,
+        supervisor_notes: j.supervisorNotes || '',
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    if (dailyGrades && dailyGrades.length > 0) {
+      tables['daily_grades'] = dailyGrades.map((dg) => ({
+        id: dg.id,
+        student_id: dg.studentId || null,
+        student_name: dg.studentName,
+        class_id: dg.classId || null,
+        class_name: dg.className,
+        subject: dg.subject,
+        semester: dg.semester || 'Ganjil',
+        academic_year: dg.academicYear || '2026/2027',
+        tasks: dg.tasks || [],
+        uh: dg.uh || [],
+        average_task: dg.averageTask || 0,
+        average_uh: dg.averageUH || 0,
+        final_daily: dg.finalDaily || 0,
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    if (unifiedGrades && unifiedGrades.length > 0) {
+      tables['unified_grades'] = unifiedGrades.map((ug) => ({
+        id: ug.id,
+        student_id: ug.studentId || null,
+        student_name: ug.studentName,
+        class_name: ug.className,
+        subject: ug.subject,
+        task1: ug.task1 || 0,
+        task2: ug.task2 || 0,
+        uh1: ug.uh1 || 0,
+        uh2: ug.uh2 || 0,
+        performance: ug.performance || 0,
+        daily_average: ug.dailyAverage || 0,
+        pts_score: ug.ptsScore || 0,
+        pas_score: ug.pasScore || 0,
+        final_score: ug.finalScore || 0,
+        predicate: ug.predicate || 'B',
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    if (aiDocs && aiDocs.length > 0) {
+      tables['ai_documents'] = aiDocs.map((doc) => ({
+        id: doc.id,
+        title: doc.title,
+        tool_type: doc.toolType || 'modul_ajar',
+        level: doc.level || '',
+        grade: doc.grade || '',
+        subject: doc.subject || '',
+        semester: doc.semester || '',
+        phase: doc.phase || '',
+        model_option: doc.modelOption || '',
+        content: doc.content || '',
+        author_email: doc.authorEmail || '',
+        tags: doc.tags || [],
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    if (cpDists && cpDists.length > 0) {
+      tables['cp_distributions'] = cpDists.map((cp) => ({
+        id: cp.id,
+        teacher_name: cp.teacherName,
+        teacher_nip: cp.teacherNip || '',
+        subject: cp.subject,
+        school_name: cp.schoolName,
+        level: cp.level,
+        grade: cp.grade || '',
+        phase: cp.phase || '',
+        academic_year: cp.academicYear || '2026/2027',
+        semester_option: cp.semesterOption || 'Semua Semester (1 & 2)',
+        total_hours_per_year: cp.totalHoursPerYear || 72,
+        total_tp_count: cp.totalTPCount || 8,
+        jp_per_week: cp.jpPerWeek || 2,
+        cp_text: cp.cpText || '',
+        materials_sem1: cp.materialsSem1 || [],
+        materials_sem2: cp.materialsSem2 || [],
+        total_hours_sem1: cp.totalHoursSem1 || 36,
+        total_hours_sem2: cp.totalHoursSem2 || 36,
+        author_email: cp.authorEmail || '',
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    if (logs && logs.length > 0) {
+      tables['access_logs'] = logs.slice(0, 50).map((l) => ({
+        id: l.id,
+        user_id: l.userId || null,
+        user_email: l.userEmail || '',
+        user_name: l.userName || '',
+        user_role: l.userRole || 'guru',
+        action: l.action,
+        details: l.details || '',
+        timestamp: l.timestamp || new Date().toISOString(),
+        ip_address: l.ipAddress || '',
+        status: l.status || 'info',
+      }));
+    }
+
+    return tables;
   }
 
   /**

@@ -12,6 +12,27 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
+// Enable Trust Proxy for Cloudflare (CF-Connecting-IP, X-Forwarded-For, X-Forwarded-Proto)
+app.set('trust proxy', true);
+
+// Universal CORS & Cloudflare Edge Header Handler
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization, apikey, Prefer, X-Client-Info, CF-Connecting-IP, CF-Ray, CF-Visitor, CF-IPCountry'
+  );
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Range, CF-Ray, Server-Timing');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -502,6 +523,418 @@ app.post('/api/admin/auto-save-sync', (req, res) => {
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// ==========================================
+// SUPABASE RESILIENT CLOUD PROXY & SYNC APIS
+// (Menghindari TypeError: Failed to fetch akibat CORS / iframe sandbox / adblocker di browser)
+// ==========================================
+
+// 1. Supabase Transparent Proxy
+app.post('/api/supabase/proxy', async (req, res) => {
+  try {
+    const { url, method = 'GET', headers = {}, body } = req.body;
+    if (!url || typeof url !== 'string' || !url.startsWith('https://')) {
+      return res.status(400).json({ error: 'URL target tidak valid' });
+    }
+    const parsedUrl = new URL(url);
+    if (!parsedUrl.hostname.endsWith('supabase.co')) {
+      return res.status(403).json({ error: 'Proxy hanya diizinkan untuk domain supabase.co' });
+    }
+
+    const fetchHeaders: Record<string, string> = {};
+    if (headers && typeof headers === 'object') {
+      for (const [k, v] of Object.entries(headers)) {
+        if (typeof v === 'string') {
+          fetchHeaders[k] = v;
+        }
+      }
+    }
+
+    const fetchOptions: RequestInit = {
+      method: method.toUpperCase(),
+      headers: fetchHeaders,
+    };
+
+    if (body && ['POST', 'PUT', 'PATCH'].includes(fetchOptions.method || '')) {
+      fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
+    }
+
+    const response = await fetch(url, fetchOptions);
+    const textData = await response.text();
+
+    const resHeaders: Record<string, string> = {};
+    response.headers.forEach((v, k) => {
+      resHeaders[k] = v;
+    });
+
+    res.json({
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      headers: resHeaders,
+      body: textData,
+    });
+  } catch (err: any) {
+    console.error('Supabase proxy error:', err);
+    res.status(500).json({ error: err.message || 'Gagal menghubungi Supabase lewat proxy server' });
+  }
+});
+
+// 2. Supabase Server-Side Connection Test
+app.post('/api/supabase/test-connection', async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { url, apiKey } = req.body;
+    const targetUrl = (url || process.env.VITE_SUPABASE_URL || '').trim();
+    const key = (apiKey || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
+
+    if (!targetUrl || !key) {
+      return res.status(400).json({ success: false, message: 'URL dan API Key Supabase belum lengkap' });
+    }
+
+    const endpoint = `${targetUrl.replace(/\/$/, '')}/rest/v1/school_profile?select=id&limit=1`;
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const latencyMs = Date.now() - startTime;
+    const text = await response.text();
+
+    if (!response.ok) {
+      let parsedError: any = null;
+      try { parsedError = JSON.parse(text); } catch {}
+      const msg = parsedError?.message || text;
+
+      if (
+        response.status === 404 ||
+        msg.includes('does not exist') ||
+        msg.includes('relation "public.school_profile" does not exist') ||
+        parsedError?.code === 'PGRST204' ||
+        parsedError?.code === '42P01'
+      ) {
+        return res.json({
+          success: true,
+          latencyMs,
+          tableExists: false,
+          message: `Terhubung ke Supabase (${latencyMs}ms)! Skema tabel database belum dibuat. Silakan salin & jalankan Skrip SQL di Supabase SQL Editor.`,
+        });
+      }
+
+      return res.status(response.status).json({
+        success: false,
+        latencyMs,
+        message: `Koneksi ditolak Supabase: ${msg}`,
+      });
+    }
+
+    return res.json({
+      success: true,
+      latencyMs,
+      tableExists: true,
+      message: `Koneksi ke Supabase Cloud berhasil aktif dan terverifikasi (${latencyMs}ms)!`,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      latencyMs: Date.now() - startTime,
+      message: `Gagal menghubungi Supabase: ${err.message}`,
+    });
+  }
+});
+
+// 3. Supabase Server-Side Batch Push Data
+app.post('/api/supabase/push-data', async (req, res) => {
+  try {
+    const { url, apiKey, tables } = req.body;
+    const targetUrl = (url || process.env.VITE_SUPABASE_URL || '').trim().replace(/\/$/, '');
+    const key = (apiKey || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
+
+    if (!targetUrl || !key || !tables || typeof tables !== 'object') {
+      return res.status(400).json({ success: false, message: 'Data atau kredensial Supabase tidak lengkap' });
+    }
+
+    const stats: Record<string, number> = {};
+    const tableErrors: { table: string; message: string }[] = [];
+
+    for (const [tableName, records] of Object.entries(tables)) {
+      if (!Array.isArray(records) || records.length === 0) continue;
+
+      try {
+        const endpoint = `${targetUrl}/rest/v1/${tableName}?on_conflict=id`;
+        const pushRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'apikey': key,
+            'Authorization': `Bearer ${key}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates,return=minimal',
+          },
+          body: JSON.stringify(records),
+        });
+
+        if (pushRes.ok) {
+          stats[tableName] = records.length;
+        } else {
+          const errText = await pushRes.text();
+          tableErrors.push({ table: tableName, message: errText });
+        }
+      } catch (err: any) {
+        tableErrors.push({ table: tableName, message: err.message });
+      }
+    }
+
+    if (Object.keys(stats).length === 0 && tableErrors.length > 0) {
+      const isMissing = tableErrors[0].message.includes('does not exist') || tableErrors[0].message.includes('42P01');
+      return res.json({
+        success: false,
+        message: isMissing
+          ? 'Tabel di Supabase belum dibuat. Silakan salin skrip SQL dan jalankan di Supabase SQL Editor terlebih dahulu.'
+          : `Gagal menyinkronkan: ${tableErrors[0].message}`,
+        tableErrors,
+      });
+    }
+
+    return res.json({
+      success: true,
+      stats,
+      tableErrors: tableErrors.length > 0 ? tableErrors : undefined,
+      message: `Sinkronisasi server ke Supabase Cloud berhasil! (${Object.keys(stats).length} modul tersinkron)`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==========================================
+// GITHUB RESILIENT CLOUD SYNC & BACKUP APIS
+// ==========================================
+
+// 1. GitHub Connection & Repository Access Test
+app.post('/api/github/test-connection', async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { owner, repo, token } = req.body;
+    const repoOwner = (owner || '').trim();
+    const repoName = (repo || '').trim();
+    const patToken = (token || process.env.GITHUB_TOKEN || '').trim();
+
+    if (!repoOwner || !repoName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username/Owner dan Nama Repository GitHub wajib diisi',
+      });
+    }
+
+    const headers: Record<string, string> = {
+      'Accept': 'application/vnd.github+json',
+      'User-Agent': 'E-Project-Guru-Digital/1.0',
+    };
+    if (patToken) {
+      headers['Authorization'] = `Bearer ${patToken}`;
+    }
+
+    const ghRes = await fetch(`https://api.github.com/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}`, {
+      method: 'GET',
+      headers,
+    });
+
+    const latencyMs = Date.now() - startTime;
+    const data = await ghRes.json();
+
+    if (!ghRes.ok) {
+      if (ghRes.status === 404) {
+        return res.status(404).json({
+          success: false,
+          latencyMs,
+          message: `Repository "${repoOwner}/${repoName}" tidak ditemukan. Pastikan repo telah dibuat di GitHub dan Token memiliki izin akses repo privat jika repo bersifat privat.`,
+        });
+      }
+      if (ghRes.status === 401) {
+        return res.status(401).json({
+          success: false,
+          latencyMs,
+          message: 'GitHub Personal Access Token (PAT) tidak valid atau telah kedaluwarsa.',
+        });
+      }
+      return res.status(ghRes.status).json({
+        success: false,
+        latencyMs,
+        message: `Koneksi GitHub gagal (${ghRes.status}): ${data.message || 'Unknown error'}`,
+      });
+    }
+
+    return res.json({
+      success: true,
+      latencyMs,
+      repoUrl: data.html_url,
+      defaultBranch: data.default_branch || 'main',
+      isPrivate: data.private,
+      permissions: data.permissions,
+      message: `Terhubung ke GitHub: ${data.full_name} (${data.private ? 'Private' : 'Public'}, branch: ${data.default_branch})`,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      latencyMs: Date.now() - startTime,
+      message: `Gagal menghubungi GitHub API: ${err.message}`,
+    });
+  }
+});
+
+// 2. GitHub Push & Commit Batch Files
+app.post('/api/github/push-data', async (req, res) => {
+  try {
+    const { owner, repo, branch = 'main', token, files, commitMessage } = req.body;
+    const repoOwner = (owner || '').trim();
+    const repoName = (repo || '').trim();
+    const patToken = (token || process.env.GITHUB_TOKEN || '').trim();
+    const targetBranch = (branch || 'main').trim();
+
+    if (!repoOwner || !repoName || !patToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Owner, Repo, dan GitHub Personal Access Token (PAT) dengan izin repo wajib disertakan untuk sinkronisasi.',
+      });
+    }
+
+    if (!files || typeof files !== 'object' || Object.keys(files).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tidak ada berkas data yang dikirim untuk di-commit.',
+      });
+    }
+
+    const headers = {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${patToken}`,
+      'User-Agent': 'E-Project-Guru-Digital/1.0',
+      'Content-Type': 'application/json',
+    };
+
+    const committedFiles: string[] = [];
+    const failedFiles: { path: string; error: string }[] = [];
+
+    // Push file demi file secara sekuensial
+    for (const [filePath, content] of Object.entries(files)) {
+      try {
+        const fileContentStr = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+        const encodedContent = Buffer.from(fileContentStr, 'utf-8').toString('base64');
+        const apiPath = `https://api.github.com/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/contents/${filePath.replace(/^\//, '')}`;
+
+        // Cek apakah berkas sudah ada sebelumnya di branch target untuk mendapatkan SHA terkini
+        let fileSha: string | undefined = undefined;
+        try {
+          const checkRes = await fetch(`${apiPath}?ref=${encodeURIComponent(targetBranch)}`, {
+            method: 'GET',
+            headers,
+          });
+          if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            fileSha = checkData.sha;
+          }
+        } catch {
+          // File mungkin belum ada di repo, abaikan
+        }
+
+        const msg = commitMessage || `Auto Sync: perbarui ${filePath} [E-Project Guru Digital]`;
+        const putRes = await fetch(apiPath, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({
+            message: msg,
+            content: encodedContent,
+            branch: targetBranch,
+            sha: fileSha,
+          }),
+        });
+
+        if (putRes.ok) {
+          committedFiles.push(filePath);
+        } else {
+          const errData = await putRes.json().catch(() => ({}));
+          failedFiles.push({ path: filePath, error: errData.message || `HTTP ${putRes.status}` });
+        }
+      } catch (fileErr: any) {
+        failedFiles.push({ path: filePath, error: fileErr.message });
+      }
+    }
+
+    if (committedFiles.length === 0 && failedFiles.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Gagal commit ke GitHub: ${failedFiles[0].error}`,
+        failedFiles,
+      });
+    }
+
+    const repoUrl = `https://github.com/${repoOwner}/${repoName}/tree/${targetBranch}`;
+    return res.json({
+      success: true,
+      committedCount: committedFiles.length,
+      committedFiles,
+      failedFiles: failedFiles.length > 0 ? failedFiles : undefined,
+      repoUrl,
+      branch: targetBranch,
+      message: `Berhasil sinkronkan ${committedFiles.length} berkas data ke GitHub (${targetBranch})!`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==========================================
+// CLOUDFLARE EDGE DIAGNOSTICS & TUNNEL APIS
+// ==========================================
+
+// 1. Get Cloudflare Edge & Proxy Status
+app.get('/api/cloudflare/status', (req, res) => {
+  const cfConnectingIp = req.headers['cf-connecting-ip'] as string;
+  const cfRay = req.headers['cf-ray'] as string;
+  const cfCountry = req.headers['cf-ipcountry'] as string;
+  const cfVisitor = req.headers['cf-visitor'] as string;
+  const cfWarpTag = req.headers['cf-warp-tag-id'] as string;
+  const cfWorker = req.headers['cf-worker'] as string;
+
+  const isCloudflare = Boolean(cfRay || cfConnectingIp || cfCountry);
+  const clientIp = cfConnectingIp || (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
+  const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'http';
+
+  res.json({
+    success: true,
+    isCloudflare,
+    detectedNetwork: isCloudflare ? 'Cloudflare Global Anycast Edge' : 'Direct / Local Network',
+    clientIp,
+    cfRay: cfRay || null,
+    cfCountry: cfCountry || null,
+    cfVisitor: cfVisitor || null,
+    cfWorker: cfWorker || null,
+    cfWarpTag: cfWarpTag || null,
+    protocol: proto,
+    headers: {
+      'cf-connecting-ip': cfConnectingIp || null,
+      'cf-ray': cfRay || null,
+      'cf-ipcountry': cfCountry || null,
+      'x-forwarded-proto': req.headers['x-forwarded-proto'] || null,
+      'x-forwarded-for': req.headers['x-forwarded-for'] || null,
+      'host': req.headers['host'] || null,
+    },
+    features: {
+      trustProxyEnabled: true,
+      spaRedirectsConfigured: true,
+      edgeCorsActive: true,
+      wranglerPagesReady: true,
+    },
+    quickGuides: {
+      pagesDeployCmd: 'npx wrangler pages deploy dist',
+      tunnelRunCmd: 'cloudflared tunnel run <TUNNEL_NAME_OR_TOKEN>',
+    },
+  });
 });
 
 // 2. Generate Curriculum Artifacts with Deep Learning & CP Terbaru

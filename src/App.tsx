@@ -26,6 +26,7 @@ import { TokenQuotaModal } from './components/TokenQuotaModal';
 import { CurriculumResetModal } from './components/CurriculumResetModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AMDLogo } from './components/AMDLogo';
+import { CloudAutoSyncService } from './lib/cloudAutoSync';
 
 // Views
 import { DashboardHomeView } from './views/DashboardHomeView';
@@ -89,6 +90,9 @@ export default function App() {
 
   // Automatic 12-Hour Curriculum & Teaching Data Auto-Reset Runner
   useEffect(() => {
+    // Inisialisasi sinkronisasi otomatis dual cloud (Supabase & GitHub)
+    CloudAutoSyncService.init();
+
     // Jalankan pengecekan dan eksekusi reset 12 jam saat aplikasi dimuat
     StorageService.checkAndRunAuto12hCurriculumReset();
 
