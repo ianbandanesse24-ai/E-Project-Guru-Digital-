@@ -1,0 +1,2562 @@
+import {
+  UserAccount,
+  AccessLog,
+  NotificationItem,
+  UserNotification,
+  ClassRoom,
+  Student,
+  AttendanceRecord,
+  ScheduleItem,
+  AgendaItem,
+  JournalItem,
+  HomeroomStudent,
+  DailyGrade,
+  PTSGrade,
+  PASGrade,
+  AutomaticRecapGrade,
+  GradeEntry,
+  AIDocument,
+  CPReference,
+  UserFeedback,
+  SupabaseConfig,
+  SchoolProfile,
+  CPMaterialItem,
+  CPDistributionPlan,
+  AppTheme,
+  AppThemeConfig,
+  TokenVoucher,
+  TokenQuotaStatus,
+  KalenderPendidikanData,
+  KalenderSemesterPlan,
+  KalenderMonthAnalysis,
+  ActiveMasterCPData,
+  AdminSystemSettings,
+  CurriculumResetStats,
+} from '../types';
+import { INITIAL_CLASSES, INITIAL_STUDENTS, INITIAL_CP_REFERENCES } from './curriculumData';
+import { getSubjectPresetByGrade } from './subjectMaterialPresets';
+import { normalizeThemeConfig, DEFAULT_THEME_CONFIG } from './theme';
+
+export type { SchoolProfile, TokenVoucher, TokenQuotaStatus, AdminSystemSettings, CurriculumResetStats };
+
+// Storage Keys
+const KEYS = {
+  CURRENT_USER: 'agk_current_user',
+  USERS: 'agk_users',
+  ACCESS_LOGS: 'agk_access_logs',
+  NOTIFICATIONS: 'agk_notifications',
+  CLASSES: 'agk_classes',
+  STUDENTS: 'agk_students',
+  ATTENDANCE: 'agk_attendance',
+  SCHEDULE: 'agk_schedule',
+  AGENDA: 'agk_agenda',
+  JOURNAL: 'agk_journal',
+  HOMEROOM: 'agk_homeroom',
+  DAILY_GRADES: 'agk_daily_grades',
+  PTS_GRADES: 'agk_pts_grades',
+  PAS_GRADES: 'agk_pas_grades',
+  RECAP_GRADES: 'agk_recap_grades',
+  GRADES_UNIFIED: 'agk_grades_unified',
+  AI_DOCS: 'agk_ai_docs',
+  CP_REFS: 'agk_cp_references',
+  CP_DISTRIBUTIONS: 'agk_cp_distributions',
+  FEEDBACKS: 'agk_feedbacks',
+  SUPABASE_CONFIG: 'agk_supabase_config',
+  SCHOOL_PROFILE: 'agk_school_profile',
+  TOKEN_VOUCHERS: 'agk_token_vouchers',
+  KALENDER_PENDIDIKAN: 'agk_kalender_pendidikan',
+  ACTIVE_MASTER_CP: 'agk_active_master_cp',
+  ADMIN_SETTINGS: 'agk_admin_settings',
+  AI_CLEANUP_META: 'agk_ai_cleanup_meta',
+  CURRICULUM_RESET_META: 'agk_curriculum_reset_meta',
+};
+
+export const DEFAULT_ADMIN_SETTINGS: AdminSystemSettings = {
+  defaultMonthlyQuota: 35,
+  defaultMonthlyTokenLimit: 500000,
+  defaultSubscriptionDurationYears: 1,
+  autoApproveNewUsers: false,
+  preferredModel: 'gemini-3.8-flash',
+  fallbackModel: 'gemini-2.5-flash',
+  deepLearningFrameworkVersion: 'Deep Learning (Mindful, Meaningful, Joyful)',
+  autoSaveEnabled: true,
+  autoSaveIntervalSeconds: 2,
+  rpmDefaultFormat: 'rpm_deep_learning_master',
+  enableActivityLogging: true,
+  enableCloudSync: true,
+  notificationSoundEnabled: true,
+  systemBroadcastMessage: '',
+  enable24hAICleanup: true,
+  aiDataRetentionHours: 24,
+  lastAICleanupTimestamp: '',
+  totalAIDocsPurgedCount: 0,
+  enable12hCurriculumReset: true,
+  curriculumResetIntervalHours: 12,
+  lastCurriculumResetTimestamp: '',
+  nextCurriculumResetTimestamp: '',
+  totalCurriculumResetCount: 0,
+  lastUpdated: new Date().toISOString(),
+  updatedBy: 'Sistem Master Admin',
+};
+
+export const DEFAULT_KALENDER_PENDIDIKAN: KalenderPendidikanData = {
+  id: 'kaldik-standar-2025-2026',
+  academicYear: '2025/2026',
+  tahunAjaran: '2025/2026',
+  province: 'Nasional / Maluku',
+  notes: 'Kalender Pendidikan Standar Kurikulum Merdeka TP 2025/2026 (Semester Ganjil & Genap)',
+  catatanKhusus: 'Pekan efektif disesuaikan dengan agenda kalender pendidikan dinas setempat.',
+  uploadedAt: '2025-07-01 08:00',
+  semester1: {
+    semester: 'Ganjil',
+    semesterName: 'Ganjil',
+    academicYear: '2025/2026',
+    jpPerWeek: 3,
+    totalWeeks: 26,
+    totalCalendarWeeks: 26,
+    nonEffectiveWeeks: 7,
+    totalNonEffectiveWeeks: 7,
+    totalEffectiveWeeks: 19,
+    totalEffectiveHours: 57,
+    totalJpSemester: 57,
+    reservedHours: 6,
+    netTeachingHours: 51,
+    months: [
+      { monthName: 'Juli 2025', totalWeeks: 5, nonEffectiveWeeks: 2, effectiveWeeks: 3, description: 'Libur Akhir Tahun Ajaran (P1-P2) & MPLS (P3)', nonEffectiveNotes: 'Libur Akhir Tahun Ajaran (P1-P2) & MPLS (P3)' },
+      { monthName: 'Agustus 2025', totalWeeks: 4, nonEffectiveWeeks: 0, effectiveWeeks: 4, description: 'KBM Efektif (Peringatan HUT RI)', nonEffectiveNotes: 'KBM Efektif (Peringatan HUT RI)' },
+      { monthName: 'September 2025', totalWeeks: 5, nonEffectiveWeeks: 1, effectiveWeeks: 4, description: 'Asesmen Tengah Semester / ASTS (P4)', nonEffectiveNotes: 'Asesmen Tengah Semester / ASTS (P4)' },
+      { monthName: 'Oktober 2025', totalWeeks: 4, nonEffectiveWeeks: 0, effectiveWeeks: 4, description: 'KBM Efektif & Pekan P5', nonEffectiveNotes: 'KBM Efektif & Pekan P5' },
+      { monthName: 'November 2025', totalWeeks: 4, nonEffectiveWeeks: 0, effectiveWeeks: 4, description: 'KBM Efektif', nonEffectiveNotes: 'KBM Efektif' },
+      { monthName: 'Desember 2025', totalWeeks: 4, nonEffectiveWeeks: 4, effectiveWeeks: 0, description: 'ASAS (P1), Pengolahan Nilai (P2), Rapor (P3), Libur Semester 1 (P4)', nonEffectiveNotes: 'ASAS (P1), Pengolahan Nilai (P2), Rapor (P3), Libur Semester 1 (P4)' },
+    ],
+  },
+  semester2: {
+    semester: 'Genap',
+    semesterName: 'Genap',
+    academicYear: '2025/2026',
+    jpPerWeek: 3,
+    totalWeeks: 26,
+    totalCalendarWeeks: 26,
+    nonEffectiveWeeks: 8,
+    totalNonEffectiveWeeks: 8,
+    totalEffectiveWeeks: 18,
+    totalEffectiveHours: 54,
+    totalJpSemester: 54,
+    reservedHours: 6,
+    netTeachingHours: 48,
+    months: [
+      { monthName: 'Januari 2026', totalWeeks: 5, nonEffectiveWeeks: 1, effectiveWeeks: 4, description: 'Libur Awal Semester Genap (P1)', nonEffectiveNotes: 'Libur Awal Semester Genap (P1)' },
+      { monthName: 'Februari 2026', totalWeeks: 4, nonEffectiveWeeks: 0, effectiveWeeks: 4, description: 'KBM Efektif', nonEffectiveNotes: 'KBM Efektif' },
+      { monthName: 'Maret 2026', totalWeeks: 4, nonEffectiveWeeks: 1, effectiveWeeks: 3, description: 'ASTS Genap & Libur Awal Ramadhan (P3)', nonEffectiveNotes: 'ASTS Genap & Libur Awal Ramadhan (P3)' },
+      { monthName: 'April 2026', totalWeeks: 5, nonEffectiveWeeks: 2, effectiveWeeks: 3, description: 'Libur Hari Raya Idul Fitri (P1-P2)', nonEffectiveNotes: 'Libur Hari Raya Idul Fitri (P1-P2)' },
+      { monthName: 'Mei 2026', totalWeeks: 4, nonEffectiveWeeks: 1, effectiveWeeks: 3, description: 'Ujian Sekolah / Asesmen Akhir Jenjang (P3)', nonEffectiveNotes: 'Ujian Sekolah / Asesmen Akhir Jenjang (P3)' },
+      { monthName: 'Juni 2026', totalWeeks: 4, nonEffectiveWeeks: 3, effectiveWeeks: 1, description: 'ASAS Genap (P1), Pembagian Rapor (P2), Libur Akhir Tahun (P3-P4)', nonEffectiveNotes: 'ASAS Genap (P1), Pembagian Rapor (P2), Libur Akhir Tahun (P3-P4)' },
+    ],
+  },
+};
+
+export const DEFAULT_SCHOOL_PROFILE: SchoolProfile = {
+  schoolName: 'SMA NEGERI 30 MALUKU TENGAH',
+  npsn: '60103210',
+  address: 'Jl. Pendidikan No. 30, Maluku Tengah, Maluku',
+  headmasterName: 'Darmayanti Karmen, S.Pd',
+  headmasterNip: '19700315 199602 1 002',
+  teacherName: 'Aspian La Ode Madimu, S.Pd. Gr',
+  teacherNip: '19961222202421107',
+  city: 'Maluku Tengah',
+  semester: 'Ganjil',
+  academicYear: '2026/2027',
+  subject: 'Biologi',
+  level: 'SMA',
+  grade: 11,
+  phase: 'Fase F',
+  jpPerWeek: 3,
+  totalHoursPerYear: 108,
+  timeAllocationPerWeek: '45 Menit',
+  cpText: 'Peserta didik memahami keanekaragaman hayati Indonesia, virus dan peranannya, bioteknologi konvensional dan modern, serta inovasi pelestarian lingkungan dan ekosistem maritim/daratan.',
+};
+
+export const INITIAL_CP_DISTRIBUTIONS: CPDistributionPlan[] = [];
+
+// Initial admin and client users
+export const DEFAULT_ADMIN: UserAccount = {
+  id: 'usr-admin-1',
+  email: 'ian.bandanesse24@gmail.com',
+  name: 'Aspian La Ode Madimu, S.Pd Gr.',
+  role: 'admin',
+  status: 'approved',
+  password: 'Yulian12',
+  school: 'SMA Negeri 30 Maluku Tengah',
+  subject: 'Fisika',
+  phone: '081255678901',
+  requestDate: '2025-01-01 08:00',
+  approvalDate: '2025-01-01 08:00',
+  approvedBy: 'Sistem Master',
+  authCode: 'ADMIN-MASTER-2025',
+  lastLogin: '2026-08-22 01:00',
+  monthlyAIClicks: 0,
+  monthlyAILimit: 50,
+  monthlyTokensUsed: 0,
+  monthlyTokensLimit: 1000000,
+  billingCycleDay: 1,
+  subscriptionStartDate: '2025-01-01',
+  subscriptionExpiryDate: '2099-12-31',
+  subscriptionStatus: 'active',
+  paymentStatus: 'paid',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+};
+
+export const DEFAULT_DEMO_USER: UserAccount = {
+  id: 'usr-demo-1',
+  email: 'Demo@Demo',
+  name: 'Guru Akun Demo (E-Project)',
+  role: 'guru',
+  status: 'approved',
+  password: 'Demo',
+  school: 'Sekolah Model Digital',
+  subject: 'Pendidikan Digital',
+  phone: '081234567890',
+  requestDate: '2025-01-01 08:00',
+  approvalDate: '2025-01-01 08:00',
+  approvedBy: 'Administrator',
+  authCode: 'DEMO-APPROVED-2025',
+  lastLogin: '2026-08-22 01:00',
+  monthlyAIClicks: 0,
+  monthlyAILimit: 50,
+  monthlyTokensUsed: 0,
+  monthlyTokensLimit: 1000000,
+  billingCycleDay: 1,
+  subscriptionStartDate: '2025-01-01',
+  subscriptionExpiryDate: '2099-12-31',
+  subscriptionStatus: 'active',
+  paymentStatus: 'paid',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+};
+
+export const INITIAL_CLIENTS: UserAccount[] = [
+  DEFAULT_ADMIN,
+  DEFAULT_DEMO_USER,
+];
+
+export const INITIAL_TOKEN_VOUCHERS: TokenVoucher[] = [
+  {
+    id: 'vouch-1',
+    code: 'GURUKREATIF20',
+    extraClicks: 20,
+    isRedeemed: false,
+    createdAt: '2026-08-25 00:00',
+    createdBy: 'Sistem Master',
+    description: 'Bonus Kuota Tambahan 20 Klik AI Kurikulum Merdeka',
+  },
+  {
+    id: 'vouch-2',
+    code: 'DEEPLEARNING10',
+    extraClicks: 10,
+    isRedeemed: false,
+    createdAt: '2026-08-25 00:00',
+    createdBy: 'Sistem Master',
+    description: 'Bonus Kuota Tambahan 10 Klik AI Modul & Perangkat',
+  },
+  {
+    id: 'vouch-3',
+    code: 'MERDEKABELAJAR20',
+    extraClicks: 20,
+    isRedeemed: false,
+    createdAt: '2026-08-25 00:00',
+    createdBy: 'Sistem Master',
+    description: 'Voucher Spesial Guru Inspiratif +20 Klik AI',
+  },
+];
+
+export const INITIAL_SCHEDULES: ScheduleItem[] = [];
+
+export const INITIAL_AGENDAS: AgendaItem[] = [];
+
+export const INITIAL_JOURNALS: JournalItem[] = [];
+
+export const INITIAL_HOMEROOMS: HomeroomStudent[] = [];
+
+export const INITIAL_ATTENDANCE: AttendanceRecord[] = [];
+
+export const INITIAL_UNIFIED_GRADES: GradeEntry[] = [];
+
+export const INITIAL_NOTIFICATIONS: NotificationItem[] = [];
+
+export const INITIAL_ACCESS_LOGS: AccessLog[] = [];
+
+// Storage Helper
+type StorageChangeListener = (key: string) => void;
+const storageListeners: StorageChangeListener[] = [];
+
+// In-memory fallback map for non-browser / server environments
+const inMemoryStorage = new Map<string, string>();
+
+function isStorageAvailable(): boolean {
+  try {
+    return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined' && window.localStorage !== null;
+  } catch {
+    return false;
+  }
+}
+
+export function addStorageListener(listener: StorageChangeListener): () => void {
+  storageListeners.push(listener);
+  return () => {
+    const idx = storageListeners.indexOf(listener);
+    if (idx >= 0) storageListeners.splice(idx, 1);
+  };
+}
+
+export function loadFromStorage<T>(key: string, defaultValue: T): T {
+  try {
+    if (isStorageAvailable()) {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) {
+        window.localStorage.setItem(key, JSON.stringify(defaultValue));
+        return defaultValue;
+      }
+      return JSON.parse(raw) as T;
+    } else {
+      const raw = inMemoryStorage.get(key);
+      if (!raw) {
+        inMemoryStorage.set(key, JSON.stringify(defaultValue));
+        return defaultValue;
+      }
+      return JSON.parse(raw) as T;
+    }
+  } catch (err) {
+    console.error(`Error loading key ${key}:`, err);
+    return defaultValue;
+  }
+}
+
+export function saveToStorage<T>(key: string, value: T): void {
+  try {
+    const jsonVal = JSON.stringify(value);
+    const prevVal = isStorageAvailable() ? window.localStorage.getItem(key) : inMemoryStorage.get(key);
+    // If the data hasn't changed, do not re-write or trigger listener callbacks to prevent infinite update loops
+    if (prevVal === jsonVal) {
+      return;
+    }
+    if (isStorageAvailable()) {
+      window.localStorage.setItem(key, jsonVal);
+    } else {
+      inMemoryStorage.set(key, jsonVal);
+    }
+    if (key !== KEYS.CURRENT_USER && key !== KEYS.SUPABASE_CONFIG) {
+      setTimeout(() => {
+        storageListeners.forEach((fn) => {
+          try {
+            fn(key);
+          } catch (e) {
+            console.warn('Storage listener error:', e);
+          }
+        });
+      }, 0);
+    }
+  } catch (err) {
+    console.error(`Error saving key ${key}:`, err);
+  }
+}
+
+// Storage Manager
+export class StorageService {
+  static isSessionAuthenticated(): boolean {
+    try {
+      return sessionStorage.getItem('e_project_session_authenticated') === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  static setSessionAuthenticated(active: boolean): void {
+    try {
+      if (active) {
+        sessionStorage.setItem('e_project_session_authenticated', 'true');
+      } else {
+        sessionStorage.removeItem('e_project_session_authenticated');
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  static getCurrentUser(): UserAccount | null {
+    // Pada tampilan awal masuk aplikasi, wajib tampil kotak login jika sesi baru
+    if (!this.isSessionAuthenticated()) {
+      return null;
+    }
+
+    const user = loadFromStorage<UserAccount | null>(KEYS.CURRENT_USER, null);
+    if (!user) return null;
+    if (
+      user &&
+      user.role === 'admin' &&
+      (user.email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase() ||
+        user.email.toLowerCase() === 'aspianmadimu22@guru.sma.belajar.id' ||
+        user.email.toLowerCase() === 'ian.bandanesse24@gmaip.com')
+    ) {
+      if (
+        user.email === DEFAULT_ADMIN.email &&
+        user.name === DEFAULT_ADMIN.name &&
+        user.school === DEFAULT_ADMIN.school &&
+        user.subject === DEFAULT_ADMIN.subject
+      ) {
+        return user;
+      }
+      // Sync master admin fields
+      const syncedAdmin: UserAccount = {
+        ...user,
+        email: DEFAULT_ADMIN.email,
+        name: DEFAULT_ADMIN.name,
+        school: DEFAULT_ADMIN.school,
+        subject: DEFAULT_ADMIN.subject,
+      };
+      return syncedAdmin;
+    }
+    return user;
+  }
+
+  /**
+   * Mengambil identitas user ID yang aktif untuk isolasi data per pengguna
+   */
+  static getCurrentUserId(): string | null {
+    try {
+      const user = loadFromStorage<UserAccount | null>(KEYS.CURRENT_USER, null);
+      if (!user) return null;
+      return user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9_-]/g, '_') : null);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Menghasilkan key penyimpanan lokal yang terisolasi khusus untuk akun pengguna aktif
+   * Pengguna satu tidak dapat melihat maupun mengakses data milik pengguna lain
+   */
+  static getUserScopedKey(baseKey: string, customUserId?: string | null): string {
+    const userId = customUserId !== undefined ? customUserId : this.getCurrentUserId();
+    if (!userId) {
+      return baseKey;
+    }
+    return `agk_u_${userId}_${baseKey}`;
+  }
+
+  static setCurrentUser(user: UserAccount | null): void {
+    if (user) {
+      this.setSessionAuthenticated(true);
+      saveToStorage(KEYS.CURRENT_USER, user);
+    } else {
+      this.setSessionAuthenticated(false);
+      saveToStorage(KEYS.CURRENT_USER, null);
+    }
+  }
+
+  static getUsers(): UserAccount[] {
+    let users = loadFromStorage<UserAccount[]>(KEYS.USERS, INITIAL_CLIENTS);
+
+    // Filter out any unwanted users or users named Uus
+    users = users.filter((u) => {
+      const name = (u.name || '').toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      if (name.includes('uus') || email.includes('uus')) return false;
+      return true;
+    });
+
+    // Ensure master admin is always present
+    const hasAdmin = users.some(
+      (u) =>
+        u.email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase() ||
+        u.email.toLowerCase() === 'ian.bandanesse24@gmaip.com'
+    );
+    if (!hasAdmin) {
+      users = [DEFAULT_ADMIN, ...users];
+    }
+
+    // Ensure demo user is always present
+    const hasDemo = users.some(
+      (u) => u.email.toLowerCase() === DEFAULT_DEMO_USER.email.toLowerCase()
+    );
+    if (!hasDemo) {
+      users = [...users, DEFAULT_DEMO_USER];
+    }
+
+    return users.map((u) => {
+      if (
+        (u.role === 'admin' && u.email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase()) ||
+        u.email.toLowerCase() === 'ian.bandanesse24@gmaip.com'
+      ) {
+        return {
+          ...u,
+          name: DEFAULT_ADMIN.name,
+          email: DEFAULT_ADMIN.email,
+          password: DEFAULT_ADMIN.password,
+          school: DEFAULT_ADMIN.school,
+          subject: DEFAULT_ADMIN.subject,
+        };
+      }
+      if (u.email.toLowerCase() === DEFAULT_DEMO_USER.email.toLowerCase()) {
+        return {
+          ...u,
+          name: DEFAULT_DEMO_USER.name,
+          email: DEFAULT_DEMO_USER.email,
+          password: DEFAULT_DEMO_USER.password,
+          status: 'approved',
+        };
+      }
+      return u;
+    });
+  }
+
+  static saveUsers(users: UserAccount[]): void {
+    const filtered = users.filter((u) => {
+      const name = (u.name || '').toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      return !name.includes('uus') && !email.includes('uus');
+    });
+    saveToStorage(KEYS.USERS, filtered);
+  }
+
+  static deleteUser(userId: string): void {
+    const users = this.getUsers().filter((u) => u.id !== userId && u.email.toLowerCase() !== DEFAULT_ADMIN.email.toLowerCase());
+    this.saveUsers(users);
+  }
+
+  static purgeUserByQuery(query: string): number {
+    const q = query.toLowerCase().trim();
+    if (!q) return 0;
+    const current = this.getUsers();
+    const filtered = current.filter((u) => {
+      if (u.email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase()) return true; // keep admin
+      const matchName = (u.name || '').toLowerCase().includes(q);
+      const matchEmail = (u.email || '').toLowerCase().includes(q);
+      const matchId = (u.id || '').toLowerCase().includes(q);
+      return !(matchName || matchEmail || matchId);
+    });
+    const deletedCount = current.length - filtered.length;
+    this.saveUsers(filtered);
+    return deletedCount;
+  }
+
+  /**
+   * Reset total semua data menjadi seperti aplikasi baru yang belum pernah digunakan
+   */
+  static resetAllDataToFresh(): void {
+    try {
+      if (!isStorageAvailable()) return;
+      const currentUser = this.getCurrentUser();
+      const userId = this.getCurrentUserId();
+
+      // Clear current user's isolated data
+      if (userId) {
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.CLASSES, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.STUDENTS, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.ATTENDANCE, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.SCHEDULE, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.AGENDA, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.JOURNAL, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.HOMEROOM, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.DAILY_GRADES, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.PTS_GRADES, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.PAS_GRADES, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.RECAP_GRADES, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.GRADES_UNIFIED, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.AI_DOCS, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.CP_DISTRIBUTIONS, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.ACTIVE_MASTER_CP, userId), JSON.stringify(null));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.FEEDBACKS, userId), JSON.stringify([]));
+        window.localStorage.setItem(this.getUserScopedKey(KEYS.NOTIFICATIONS, userId), JSON.stringify([]));
+        window.localStorage.removeItem(this.getUserScopedKey('agk_current_draft', userId));
+      }
+
+      window.localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(currentUser || DEFAULT_ADMIN));
+      window.localStorage.setItem('agk_fresh_clean_v4', 'true');
+
+      // Notify all listeners
+      Object.values(KEYS).forEach((k) => {
+        storageListeners.forEach((fn) => {
+          try {
+            fn(k);
+          } catch {}
+        });
+      });
+    } catch (e) {
+      console.error('Failed to reset data:', e);
+    }
+  }
+
+  /**
+   * Pembersihan otomatis data dummy lama dan akun Uus saat aplikasi dimuat pertama kali
+   */
+  static autoCleanLegacyMockData(): void {
+    try {
+      if (!isStorageAvailable()) return;
+      // Pastikan seluruh hubungan & kredensial Supabase terhapus bersih dari browser
+      window.localStorage.removeItem('agk_supabase_config');
+
+      const isCleaned = window.localStorage.getItem('agk_fresh_clean_v4');
+      if (!isCleaned) {
+        this.resetAllDataToFresh();
+      } else {
+        // Tetap pastikan akun Uus terhapus jika ada di local
+        this.purgeUserByQuery('uus');
+      }
+    } catch {}
+  }
+
+  /**
+   * Log akses masuk dan aktivitas sistem
+   * Admin dapat melihat seluruh riwayat sistem;
+   * Pengguna reguler HANYA dapat melihat riwayat akses masuk akun miliknya sendiri
+   */
+  static getAccessLogs(): AccessLog[] {
+    const allLogs = loadFromStorage<AccessLog[]>(KEYS.ACCESS_LOGS, INITIAL_ACCESS_LOGS);
+    if (!Array.isArray(allLogs)) return [];
+
+    const currentUser = this.getCurrentUser();
+    if (!currentUser) return [];
+
+    // Admin Master memiliki wewenang melihat seluruh log audit sistem
+    if (
+      currentUser.role === 'admin' ||
+      currentUser.email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase()
+    ) {
+      return allLogs;
+    }
+
+    // Pengguna biasa HANYA dapat melihat riwayat aktivitas akun miliknya sendiri
+    return allLogs.filter((log) => {
+      if (log.userId && log.userId === currentUser.id) return true;
+      if (log.userEmail && log.userEmail.toLowerCase() === currentUser.email.toLowerCase()) return true;
+      return false;
+    });
+  }
+
+  static addAccessLog(log: Omit<AccessLog, 'id' | 'timestamp'>): void {
+    const allLogs = loadFromStorage<AccessLog[]>(KEYS.ACCESS_LOGS, INITIAL_ACCESS_LOGS);
+    const newLog: AccessLog = {
+      ...log,
+      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    };
+    allLogs.unshift(newLog);
+    saveToStorage(KEYS.ACCESS_LOGS, allLogs.slice(0, 200));
+  }
+
+  static getNotifications(userId?: string): NotificationItem[] {
+    const key = this.getUserScopedKey(KEYS.NOTIFICATIONS, userId);
+    const raw = loadFromStorage<NotificationItem[]>(key, []);
+    if (!Array.isArray(raw)) return [];
+
+    const seenIds = new Set<string>();
+    let hasModified = false;
+    const sanitized = raw.map((item, idx) => {
+      if (!item.id || seenIds.has(item.id)) {
+        hasModified = true;
+        const uniqueId = `notif-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 8)}`;
+        seenIds.add(uniqueId);
+        return { ...item, id: uniqueId };
+      }
+      seenIds.add(item.id);
+      return item;
+    });
+
+    if (hasModified) {
+      saveToStorage(key, sanitized);
+    }
+    return sanitized;
+  }
+
+  static saveNotifications(items: NotificationItem[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.NOTIFICATIONS, userId);
+    saveToStorage(key, items || []);
+  }
+
+  static addNotification(item: Omit<NotificationItem, 'id' | 'timestamp' | 'isRead'>, targetUserId?: string): void {
+    const notifs = this.getNotifications(targetUserId);
+    const newNotif: NotificationItem = {
+      ...item,
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      isRead: false,
+    };
+    notifs.unshift(newNotif);
+    this.saveNotifications(notifs, targetUserId);
+  }
+
+  static markNotificationsRead(userId?: string): void {
+    const notifs = this.getNotifications(userId).map((n) => ({ ...n, isRead: true }));
+    this.saveNotifications(notifs, userId);
+  }
+
+  static getClasses(userId?: string): ClassRoom[] {
+    const key = this.getUserScopedKey(KEYS.CLASSES, userId);
+    const raw = loadFromStorage<ClassRoom[]>(key, []);
+    if (!Array.isArray(raw)) return [];
+    const seen = new Set<string>();
+    let hasDupes = false;
+    const sanitized = raw.map((cls, idx) => {
+      let id = cls?.id;
+      if (!id || seen.has(id)) {
+        hasDupes = true;
+        id = `c-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`;
+      }
+      seen.add(id);
+      return { ...cls, id };
+    });
+    if (hasDupes) {
+      saveToStorage(key, sanitized);
+    }
+    return sanitized;
+  }
+
+  static saveClasses(classes: ClassRoom[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.CLASSES, userId);
+    const seen = new Set<string>();
+    const sanitized = (classes || []).map((cls, idx) => {
+      let id = cls?.id;
+      if (!id || seen.has(id)) {
+        id = `c-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`;
+      }
+      seen.add(id);
+      return { ...cls, id };
+    });
+    saveToStorage(key, sanitized);
+  }
+
+  static getStudents(userId?: string): Student[] {
+    const key = this.getUserScopedKey(KEYS.STUDENTS, userId);
+    const raw = loadFromStorage<Student[]>(key, []);
+    if (!Array.isArray(raw)) return [];
+    const seen = new Set<string>();
+    let hasDupes = false;
+    const sanitized = raw.map((s, idx) => {
+      let id = s?.id;
+      if (!id || seen.has(id)) {
+        hasDupes = true;
+        id = `s-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`;
+      }
+      seen.add(id);
+      return { ...s, id };
+    });
+    if (hasDupes) {
+      saveToStorage(key, sanitized);
+    }
+    return sanitized;
+  }
+
+  static saveStudents(students: Student[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.STUDENTS, userId);
+    const seen = new Set<string>();
+    const sanitized = (students || []).map((s, idx) => {
+      let id = s?.id;
+      if (!id || seen.has(id)) {
+        id = `s-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`;
+      }
+      seen.add(id);
+      return { ...s, id };
+    });
+    saveToStorage(key, sanitized);
+  }
+
+  static getAttendance(userId?: string): AttendanceRecord[] {
+    const key = this.getUserScopedKey(KEYS.ATTENDANCE, userId);
+    return loadFromStorage<AttendanceRecord[]>(key, []);
+  }
+
+  static saveAttendance(records: AttendanceRecord[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.ATTENDANCE, userId);
+    saveToStorage(key, records || []);
+  }
+
+  static getSchedule(userId?: string): ScheduleItem[] {
+    const key = this.getUserScopedKey(KEYS.SCHEDULE, userId);
+    return loadFromStorage<ScheduleItem[]>(key, []);
+  }
+
+  static saveSchedule(items: ScheduleItem[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.SCHEDULE, userId);
+    saveToStorage(key, items || []);
+  }
+
+  static getAgenda(userId?: string): AgendaItem[] {
+    const key = this.getUserScopedKey(KEYS.AGENDA, userId);
+    return loadFromStorage<AgendaItem[]>(key, []);
+  }
+
+  static saveAgenda(items: AgendaItem[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.AGENDA, userId);
+    saveToStorage(key, items || []);
+  }
+
+  static getJournal(userId?: string): JournalItem[] {
+    const key = this.getUserScopedKey(KEYS.JOURNAL, userId);
+    return loadFromStorage<JournalItem[]>(key, []);
+  }
+
+  static saveJournal(items: JournalItem[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.JOURNAL, userId);
+    saveToStorage(key, items || []);
+  }
+
+  static getHomeroom(userId?: string): HomeroomStudent[] {
+    const key = this.getUserScopedKey(KEYS.HOMEROOM, userId);
+    return loadFromStorage<HomeroomStudent[]>(key, []);
+  }
+
+  static saveHomeroom(items: HomeroomStudent[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.HOMEROOM, userId);
+    saveToStorage(key, items || []);
+  }
+
+  static getGrades(userId?: string): GradeEntry[] {
+    const key = this.getUserScopedKey(KEYS.GRADES_UNIFIED, userId);
+    return loadFromStorage<GradeEntry[]>(key, []);
+  }
+
+  static saveGrades(grades: GradeEntry[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.GRADES_UNIFIED, userId);
+    saveToStorage(key, grades || []);
+  }
+
+  static getDailyGrades(userId?: string): DailyGrade[] {
+    const key = this.getUserScopedKey(KEYS.DAILY_GRADES, userId);
+    return loadFromStorage<DailyGrade[]>(key, []);
+  }
+
+  static saveDailyGrades(grades: DailyGrade[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.DAILY_GRADES, userId);
+    saveToStorage(key, grades || []);
+  }
+
+  static getPTSGrades(userId?: string): PTSGrade[] {
+    const key = this.getUserScopedKey(KEYS.PTS_GRADES, userId);
+    return loadFromStorage<PTSGrade[]>(key, []);
+  }
+
+  static savePTSGrades(grades: PTSGrade[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.PTS_GRADES, userId);
+    saveToStorage(key, grades || []);
+  }
+
+  static getPASGrades(userId?: string): PASGrade[] {
+    const key = this.getUserScopedKey(KEYS.PAS_GRADES, userId);
+    return loadFromStorage<PASGrade[]>(key, []);
+  }
+
+  static savePASGrades(grades: PASGrade[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.PAS_GRADES, userId);
+    saveToStorage(key, grades || []);
+  }
+
+  static getRecapGrades(userId?: string): AutomaticRecapGrade[] {
+    const key = this.getUserScopedKey(KEYS.RECAP_GRADES, userId);
+    return loadFromStorage<AutomaticRecapGrade[]>(key, []);
+  }
+
+  static saveRecapGrades(grades: AutomaticRecapGrade[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.RECAP_GRADES, userId);
+    saveToStorage(key, grades || []);
+  }
+
+  /**
+   * Helper untuk mengurai timestamp dokumen ke milidetik secara presisi
+   */
+  static parseAIDocTimestamp(doc: AIDocument): number {
+    try {
+      if (doc.createdAt) {
+        const parsed = new Date(doc.createdAt.includes('T') ? doc.createdAt : doc.createdAt.replace(' ', 'T')).getTime();
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+      if (doc.updatedAt) {
+        const parsed = new Date(doc.updatedAt.includes('T') ? doc.updatedAt : doc.updatedAt.replace(' ', 'T')).getTime();
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+      const match = doc.id?.match(/ai-doc-(\d+)/);
+      if (match && match[1]) {
+        const parsed = parseInt(match[1], 10);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return Date.now();
+  }
+
+  /**
+   * Membersihkan data AI Kurikulum yang berumur lebih dari 24 jam (atau durasi retensi yang dikonfigurasi)
+   * Secara otomatis mengosongkan arsip dokumen AI dan draf sementara
+   */
+  static cleanExpiredAIDocuments(customRetentionHours?: number, userId?: string): {
+    purgedCount: number;
+    remainingCount: number;
+    totalBefore: number;
+    retentionHours: number;
+    lastPurgeTime: string;
+  } {
+    const settings = loadFromStorage<AdminSystemSettings>(KEYS.ADMIN_SETTINGS, DEFAULT_ADMIN_SETTINGS);
+    const retentionHours = customRetentionHours || settings.aiDataRetentionHours || 24;
+    const maxAgeMs = retentionHours * 60 * 60 * 1000;
+    const now = Date.now();
+
+    const docsKey = this.getUserScopedKey(KEYS.AI_DOCS, userId);
+    const draftKey = this.getUserScopedKey('agk_current_draft', userId);
+    const cleanupMetaKey = this.getUserScopedKey(KEYS.AI_CLEANUP_META, userId);
+
+    const rawDocs = loadFromStorage<AIDocument[]>(docsKey, []);
+    const validDocs: AIDocument[] = [];
+    let purgedCount = 0;
+
+    for (const doc of rawDocs) {
+      const docTime = this.parseAIDocTimestamp(doc);
+      const ageMs = now - docTime;
+      if (ageMs > maxAgeMs) {
+        purgedCount++;
+      } else {
+        validDocs.push(doc);
+      }
+    }
+
+    // Periksa dan bersihkan draf sementara jika telah lewat 24 jam
+    try {
+      const draft = loadFromStorage<{ id: string; title: string; content: string; updatedAt: string } | null>(draftKey, null);
+      if (draft && draft.updatedAt) {
+        const draftTime = new Date(draft.updatedAt.includes('T') ? draft.updatedAt : draft.updatedAt.replace(' ', 'T')).getTime();
+        if (!isNaN(draftTime) && (now - draftTime) > maxAgeMs) {
+          saveToStorage(draftKey, null);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    const nowIso = new Date().toISOString();
+    const nowLocal = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+
+    if (purgedCount > 0 || rawDocs.length !== validDocs.length) {
+      saveToStorage(docsKey, validDocs);
+
+      // Simpan metadata pembersihan
+      const meta = loadFromStorage<{ totalPurged: number; lastCleanup: string }>(cleanupMetaKey, {
+        totalPurged: 0,
+        lastCleanup: nowLocal,
+      });
+      meta.totalPurged += purgedCount;
+      meta.lastCleanup = nowLocal;
+      saveToStorage(cleanupMetaKey, meta);
+
+      // Catat log akses sistem jika ada penghapusan otomatis
+      if (settings.enableActivityLogging) {
+        const currentUser = this.getCurrentUser();
+        this.addAccessLog({
+          userId: currentUser?.id || 'system-auto-cleaner',
+          userEmail: currentUser?.email || 'system@kurikulum.merdeka',
+          userName: currentUser?.name || 'Sistem Pembersih 24 Jam',
+          userRole: currentUser?.role || 'guru',
+          action: 'Pengosongan Otomatis AI Kurikulum (24 Jam)',
+          details: `Membersihkan ${purgedCount} dokumen AI Kurikulum yang telah melampaui batas retensi ${retentionHours} jam. Tersisa ${validDocs.length} dokumen aktif.`,
+          status: 'success',
+        });
+      }
+    }
+
+    return {
+      purgedCount,
+      remainingCount: validDocs.length,
+      totalBefore: rawDocs.length,
+      retentionHours,
+      lastPurgeTime: nowLocal,
+    };
+  }
+
+  /**
+   * Mengosongkan seluruh data dokumen AI Kurikulum dan draf saat ini secara manual
+   */
+  static clearAllAIDocuments(userId?: string): { clearedCount: number } {
+    const docsKey = this.getUserScopedKey(KEYS.AI_DOCS, userId);
+    const draftKey = this.getUserScopedKey('agk_current_draft', userId);
+    const cleanupMetaKey = this.getUserScopedKey(KEYS.AI_CLEANUP_META, userId);
+
+    const rawDocs = loadFromStorage<AIDocument[]>(docsKey, []);
+    const clearedCount = rawDocs.length;
+
+    saveToStorage(docsKey, []);
+    saveToStorage(draftKey, null);
+
+    const nowLocal = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+    const meta = loadFromStorage<{ totalPurged: number; lastCleanup: string }>(cleanupMetaKey, {
+      totalPurged: 0,
+      lastCleanup: nowLocal,
+    });
+    meta.totalPurged += clearedCount;
+    meta.lastCleanup = nowLocal;
+    saveToStorage(cleanupMetaKey, meta);
+
+    return { clearedCount };
+  }
+
+  /**
+   * Informasi statistik retensi & usia dokumen AI Kurikulum
+   */
+  static getAIDocsRetentionStats(userId?: string): {
+    totalDocs: number;
+    retentionHours: number;
+    oldestDocHours: number;
+    hoursUntilNextPurge: number;
+    totalPurgedAllTime: number;
+    lastCleanupTime: string;
+  } {
+    // Jalankan pembersihan terlebih dahulu
+    const cleanupResult = this.cleanExpiredAIDocuments(undefined, userId);
+    const docsKey = this.getUserScopedKey(KEYS.AI_DOCS, userId);
+    const cleanupMetaKey = this.getUserScopedKey(KEYS.AI_CLEANUP_META, userId);
+
+    const docs = loadFromStorage<AIDocument[]>(docsKey, []);
+    const now = Date.now();
+    const meta = loadFromStorage<{ totalPurged: number; lastCleanup: string }>(cleanupMetaKey, {
+      totalPurged: 0,
+      lastCleanup: cleanupResult.lastPurgeTime,
+    });
+
+    let oldestDocHours = 0;
+    let newestDocAgeHours = 0;
+
+    if (docs.length > 0) {
+      const ages = docs.map((d) => (now - this.parseAIDocTimestamp(d)) / (1000 * 60 * 60));
+      oldestDocHours = Math.max(...ages);
+      newestDocAgeHours = Math.min(...ages);
+    }
+
+    const hoursUntilNextPurge = docs.length > 0 ? Math.max(0, Math.round((cleanupResult.retentionHours - oldestDocHours) * 10) / 10) : cleanupResult.retentionHours;
+
+    return {
+      totalDocs: docs.length,
+      retentionHours: cleanupResult.retentionHours,
+      oldestDocHours: Math.round(oldestDocHours * 10) / 10,
+      hoursUntilNextPurge,
+      totalPurgedAllTime: meta.totalPurged,
+      lastCleanupTime: meta.lastCleanup,
+    };
+  }
+
+  // =========================================================================
+  // RESET DATA MANUAL & RESET OTOMATIS SETIAP 12 JAM (KURIKULUM & PERANGKAT)
+  // =========================================================================
+
+  /**
+   * Melakukan reset data kurikulum dan perangkat pembelajaran (Manual / Otomatis)
+   * Mengembalikan data kurikulum, perangkat ajar, dan administrasi mengajar ke kondisi bersih/standar
+   * Akun pengguna dan profil sekolah tetap aman terlindungi
+   */
+  static resetCurriculumAndTeachingData(options?: {
+    resetCurriculum?: boolean;
+    resetTeachingDocs?: boolean;
+    resetAdministration?: boolean;
+    isManual?: boolean;
+    triggeredBy?: string;
+    userId?: string;
+  }): {
+    success: boolean;
+    clearedCategories: string[];
+    resetTimestamp: string;
+    nextResetTimestamp: string;
+    totalResets: number;
+    message: string;
+  } {
+    const isCurriculum = options?.resetCurriculum !== false;
+    const isTeachingDocs = options?.resetTeachingDocs !== false;
+    const isAdministration = options?.resetAdministration !== false;
+    const isManual = options?.isManual ?? true;
+    const targetUserId = options?.userId || this.getCurrentUserId();
+    const triggeredBy = options?.triggeredBy || (isManual ? (this.getCurrentUser()?.name || 'Pengguna') : 'Sistem Auto-Reset 12 Jam');
+
+    const clearedCategories: string[] = [];
+    const settings = this.getAdminSettings();
+    const intervalHours = settings.curriculumResetIntervalHours || 12;
+
+    // 1. Reset Data Kurikulum (Analisis CP, Distribusi CP, Kaldik Standar)
+    if (isCurriculum) {
+      saveToStorage(this.getUserScopedKey(KEYS.ACTIVE_MASTER_CP, targetUserId), null);
+      saveToStorage(this.getUserScopedKey(KEYS.CP_DISTRIBUTIONS, targetUserId), []);
+      saveToStorage(this.getUserScopedKey(KEYS.CP_REFS, targetUserId), INITIAL_CP_REFERENCES);
+      saveToStorage(this.getUserScopedKey(KEYS.KALENDER_PENDIDIKAN, targetUserId), DEFAULT_KALENDER_PENDIDIKAN);
+      clearedCategories.push('Analisis CP & Beban Belajar Kurikulum');
+    }
+
+    // 2. Reset Data Perangkat Ajar & Dokumen AI (Modul Ajar, RPM, ATP, PROTA, PROSEM, LKPD, KKTP, Asesmen)
+    if (isTeachingDocs) {
+      saveToStorage(this.getUserScopedKey(KEYS.AI_DOCS, targetUserId), []);
+      saveToStorage(this.getUserScopedKey('agk_current_draft', targetUserId), null);
+      clearedCategories.push('Dokumen Perangkat Ajar & AI');
+    }
+
+    // 3. Reset Data Administrasi Guru (Jurnal, Agenda, Jadwal, Absensi, Nilai)
+    if (isAdministration) {
+      saveToStorage(this.getUserScopedKey(KEYS.JOURNAL, targetUserId), []);
+      saveToStorage(this.getUserScopedKey(KEYS.AGENDA, targetUserId), []);
+      saveToStorage(this.getUserScopedKey(KEYS.SCHEDULE, targetUserId), []);
+      saveToStorage(this.getUserScopedKey(KEYS.ATTENDANCE, targetUserId), []);
+      saveToStorage(this.getUserScopedKey(KEYS.GRADES_UNIFIED, targetUserId), []);
+      saveToStorage(this.getUserScopedKey(KEYS.DAILY_GRADES, targetUserId), []);
+      saveToStorage(this.getUserScopedKey(KEYS.PTS_GRADES, targetUserId), []);
+      saveToStorage(this.getUserScopedKey(KEYS.PAS_GRADES, targetUserId), []);
+      saveToStorage(this.getUserScopedKey(KEYS.RECAP_GRADES, targetUserId), []);
+      saveToStorage(this.getUserScopedKey(KEYS.HOMEROOM, targetUserId), []);
+      clearedCategories.push('Administrasi Mengajar, Absensi & Nilai');
+    }
+
+    const now = Date.now();
+    const nowIso = new Date(now).toISOString();
+    const nowLocal = new Date(now).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB (' + new Date(now).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) + ')';
+    const nextTime = now + (intervalHours * 60 * 60 * 1000);
+    const nextLocal = new Date(nextTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB (' + new Date(nextTime).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) + ')';
+
+    // Update Metadata
+    const resetMetaKey = this.getUserScopedKey(KEYS.CURRICULUM_RESET_META, targetUserId);
+    const currentMeta = loadFromStorage<{
+      lastResetIso: string;
+      lastResetLocal: string;
+      nextResetIso: string;
+      nextResetLocal: string;
+      totalResets: number;
+      intervalHours: number;
+      isEnabled: boolean;
+      lastTriggerType: 'auto' | 'manual';
+      lastTriggeredBy?: string;
+    }>(resetMetaKey, {
+      lastResetIso: nowIso,
+      lastResetLocal: nowLocal,
+      nextResetIso: new Date(nextTime).toISOString(),
+      nextResetLocal: nextLocal,
+      totalResets: 0,
+      intervalHours,
+      isEnabled: settings.enable12hCurriculumReset ?? true,
+      lastTriggerType: isManual ? 'manual' : 'auto',
+      lastTriggeredBy: triggeredBy,
+    });
+
+    const updatedMeta = {
+      ...currentMeta,
+      lastResetIso: nowIso,
+      lastResetLocal: nowLocal,
+      nextResetIso: new Date(nextTime).toISOString(),
+      nextResetLocal: nextLocal,
+      totalResets: (currentMeta.totalResets || 0) + 1,
+      intervalHours,
+      isEnabled: settings.enable12hCurriculumReset ?? true,
+      lastTriggerType: isManual ? ('manual' as const) : ('auto' as const),
+      lastTriggeredBy: triggeredBy,
+    };
+
+    saveToStorage(resetMetaKey, updatedMeta);
+
+    // Update settings timestamp
+    this.saveAdminSettings({
+      lastCurriculumResetTimestamp: nowLocal,
+      nextCurriculumResetTimestamp: nextLocal,
+      totalCurriculumResetCount: updatedMeta.totalResets,
+    });
+
+    // Catat ke log akses sistem
+    const currentUser = this.getCurrentUser();
+    this.addAccessLog({
+      userId: currentUser?.id || 'system-curriculum-reset',
+      userEmail: currentUser?.email || 'system@kurikulum.merdeka',
+      userName: triggeredBy,
+      userRole: currentUser?.role || 'guru',
+      action: isManual ? 'Reset Manual Data Kurikulum & Perangkat' : 'Reset Otomatis Data Kurikulum & Perangkat (12 Jam)',
+      details: `${isManual ? 'Manual' : 'Otomatis'}: Berhasil mereset (${clearedCategories.join(', ')}). Jadwal reset berikutnya: ${nextLocal}.`,
+      status: 'success',
+    });
+
+    // Berikan notifikasi sistem
+    this.addNotification({
+      title: isManual ? 'Reset Data Kurikulum & Perangkat Berhasil' : 'Penyegaran Otomatis Data Kurikulum (12 Jam)',
+      message: `Seluruh data kurikulum & perangkat telah disegarkan (${clearedCategories.join(', ')}). Siklus reset berikutnya pada ${nextLocal}.`,
+      type: 'system',
+    }, targetUserId || undefined);
+
+    // Notify listeners so UI updates instantly
+    setTimeout(() => {
+      storageListeners.forEach((fn) => {
+        try {
+          fn(KEYS.CURRICULUM_RESET_META);
+          fn(KEYS.AI_DOCS);
+          fn(KEYS.ACTIVE_MASTER_CP);
+          fn(KEYS.CP_DISTRIBUTIONS);
+          fn(KEYS.JOURNAL);
+          fn(KEYS.AGENDA);
+          fn(KEYS.SCHEDULE);
+          fn(KEYS.ATTENDANCE);
+          fn(KEYS.GRADES_UNIFIED);
+        } catch {}
+      });
+    }, 0);
+
+    return {
+      success: true,
+      clearedCategories,
+      resetTimestamp: nowLocal,
+      nextResetTimestamp: nextLocal,
+      totalResets: updatedMeta.totalResets,
+      message: `Berhasil mereset ${clearedCategories.length} kategori data kurikulum dan perangkat. Reset berikutnya dijadwalkan pada ${nextLocal}.`,
+    };
+  }
+
+  /**
+   * Pengecekan dan eksekusi reset otomatis 12 jam data kurikulum & perangkat
+   */
+  static checkAndRunAuto12hCurriculumReset(): {
+    didReset: boolean;
+    message: string;
+    stats: CurriculumResetStats;
+  } {
+    const settings = this.getAdminSettings();
+    const isEnabled = settings.enable12hCurriculumReset !== false;
+    const intervalHours = settings.curriculumResetIntervalHours || 12;
+    const intervalMs = intervalHours * 60 * 60 * 1000;
+    const now = Date.now();
+
+    const resetMetaKey = this.getUserScopedKey(KEYS.CURRICULUM_RESET_META);
+    const meta = loadFromStorage<{
+      lastResetIso: string;
+      lastResetLocal: string;
+      nextResetIso: string;
+      nextResetLocal: string;
+      totalResets: number;
+      intervalHours: number;
+      isEnabled: boolean;
+      lastTriggerType: 'auto' | 'manual';
+      lastTriggeredBy?: string;
+    } | null>(resetMetaKey, null);
+
+    if (!isEnabled) {
+      return {
+        didReset: false,
+        message: 'Auto-reset 12 jam dinonaktifkan di pengaturan sistem.',
+        stats: this.getCurriculumResetStats(),
+      };
+    }
+
+    if (!meta || !meta.lastResetIso) {
+      // Inisialisasi siklus reset pertama kali
+      const nowIso = new Date(now).toISOString();
+      const nowLocal = new Date(now).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+      const nextTime = now + intervalMs;
+      const nextLocal = new Date(nextTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB (' + new Date(nextTime).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) + ')';
+
+      const initialMeta = {
+        lastResetIso: nowIso,
+        lastResetLocal: nowLocal,
+        nextResetIso: new Date(nextTime).toISOString(),
+        nextResetLocal: nextLocal,
+        totalResets: 0,
+        intervalHours,
+        isEnabled: true,
+        lastTriggerType: 'auto' as const,
+        lastTriggeredBy: 'Sistem Inisialisasi',
+      };
+      saveToStorage(resetMetaKey, initialMeta);
+      return {
+        didReset: false,
+        message: `Siklus auto-reset 12 jam aktif. Reset berikutnya: ${nextLocal}.`,
+        stats: this.getCurriculumResetStats(),
+      };
+    }
+
+    const lastTime = new Date(meta.lastResetIso).getTime();
+    const nextTime = meta.nextResetIso ? new Date(meta.nextResetIso).getTime() : lastTime + intervalMs;
+    const isDue = now >= nextTime || (now - lastTime) >= intervalMs;
+
+    if (isDue) {
+      const resetResult = this.resetCurriculumAndTeachingData({
+        resetCurriculum: true,
+        resetTeachingDocs: true,
+        resetAdministration: true,
+        isManual: false,
+        triggeredBy: 'Sistem Auto-Reset 12 Jam',
+      });
+      return {
+        didReset: true,
+        message: `Auto-reset 12 jam berhasil dijalankan. ${resetResult.message}`,
+        stats: this.getCurriculumResetStats(),
+      };
+    }
+
+    return {
+      didReset: false,
+      message: 'Belum mencapai jadwal reset 12 jam.',
+      stats: this.getCurriculumResetStats(),
+    };
+  }
+
+  /**
+   * Mengambil statistik dan status hitung mundur reset data kurikulum & perangkat (12 Jam)
+   */
+  static getCurriculumResetStats(): CurriculumResetStats {
+    const settings = this.getAdminSettings();
+    const isEnabled = settings.enable12hCurriculumReset !== false;
+    const intervalHours = settings.curriculumResetIntervalHours || 12;
+    const intervalMs = intervalHours * 60 * 60 * 1000;
+    const now = Date.now();
+
+    const resetMetaKey = this.getUserScopedKey(KEYS.CURRICULUM_RESET_META);
+    const meta = loadFromStorage<{
+      lastResetIso: string;
+      lastResetLocal: string;
+      nextResetIso: string;
+      nextResetLocal: string;
+      totalResets: number;
+      intervalHours: number;
+      isEnabled: boolean;
+    } | null>(resetMetaKey, null);
+
+    if (!meta || !meta.lastResetIso) {
+      const nextTime = now + intervalMs;
+      const nextLocal = new Date(nextTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+      return {
+        lastReset: 'Siklus Pertama Berjalan',
+        nextReset: nextLocal,
+        hoursRemaining: intervalHours,
+        minutesRemaining: 0,
+        totalResets: 0,
+        isEnabled,
+        intervalHours,
+      };
+    }
+
+    const nextTime = meta.nextResetIso ? new Date(meta.nextResetIso).getTime() : new Date(meta.lastResetIso).getTime() + intervalMs;
+    const diffMs = Math.max(0, nextTime - now);
+    const totalMinutesRemaining = Math.floor(diffMs / (1000 * 60));
+    const hoursRemaining = Math.floor(totalMinutesRemaining / 60);
+    const minutesRemaining = totalMinutesRemaining % 60;
+
+    return {
+      lastReset: meta.lastResetLocal || 'Siklus Awal',
+      nextReset: meta.nextResetLocal || new Date(nextTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
+      hoursRemaining,
+      minutesRemaining,
+      totalResets: meta.totalResets || 0,
+      isEnabled,
+      intervalHours: meta.intervalHours || intervalHours,
+    };
+  }
+
+  static getAIDocuments(userId?: string): AIDocument[] {
+    // Otomatis bersihkan dokumen kedaluwarsa (> 24 jam) saat mengambil daftar dokumen
+    this.cleanExpiredAIDocuments(undefined, userId);
+    const key = this.getUserScopedKey(KEYS.AI_DOCS, userId);
+    return loadFromStorage<AIDocument[]>(key, []);
+  }
+
+  static saveAIDocuments(docs: AIDocument[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.AI_DOCS, userId);
+    saveToStorage(key, docs || []);
+  }
+
+  static saveAIDocument(doc: AIDocument, userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.AI_DOCS, userId);
+    const docs = loadFromStorage<AIDocument[]>(key, []);
+    const idx = docs.findIndex((d) => d.id === doc.id);
+    if (idx >= 0) {
+      docs[idx] = doc;
+    } else {
+      docs.unshift(doc);
+    }
+    saveToStorage(key, docs);
+  }
+
+  static getCPReferences(userId?: string): CPReference[] {
+    const key = this.getUserScopedKey(KEYS.CP_REFS, userId);
+    return loadFromStorage<CPReference[]>(key, INITIAL_CP_REFERENCES);
+  }
+
+  static saveCPReferences(refs: CPReference[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.CP_REFS, userId);
+    saveToStorage(key, refs);
+  }
+
+  static getCPDistributions(userId?: string): CPDistributionPlan[] {
+    const key = this.getUserScopedKey(KEYS.CP_DISTRIBUTIONS, userId);
+    return loadFromStorage<CPDistributionPlan[]>(key, []);
+  }
+
+  static saveCPDistributions(plans: CPDistributionPlan[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.CP_DISTRIBUTIONS, userId);
+    saveToStorage(key, plans || []);
+  }
+
+  static saveCPDistribution(plan: CPDistributionPlan, userId?: string): void {
+    const plans = this.getCPDistributions(userId);
+    const idx = plans.findIndex((p) => p.id === plan.id);
+    if (idx >= 0) {
+      plans[idx] = plan;
+    } else {
+      plans.unshift(plan);
+    }
+    this.saveCPDistributions(plans, userId);
+  }
+
+  static deleteCPDistribution(id: string, userId?: string): void {
+    const plans = this.getCPDistributions(userId).filter((p) => p.id !== id);
+    this.saveCPDistributions(plans, userId);
+  }
+
+  static getActiveMasterCP(userId?: string): ActiveMasterCPData | null {
+    const key = this.getUserScopedKey(KEYS.ACTIVE_MASTER_CP, userId);
+    return loadFromStorage<ActiveMasterCPData | null>(key, null);
+  }
+
+  static setActiveMasterCP(masterData: ActiveMasterCPData, userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.ACTIVE_MASTER_CP, userId);
+    saveToStorage(key, masterData);
+
+    // Also auto-save/update in CP Distributions so it is immediately visible in tables
+    const planId = masterData.id?.startsWith('plan-') || masterData.id?.startsWith('master-') ? masterData.id : `master-plan-${masterData.id || Date.now()}`;
+    const sem1 = masterData.materialsSem1 || [];
+    const sem2 = masterData.materialsSem2 || [];
+    const totSem1 = sem1.reduce((s, m) => s + (Number(m.allocatedHours) || 0), 0);
+    const totSem2 = sem2.reduce((s, m) => s + (Number(m.allocatedHours) || 0), 0);
+
+    const distPlan: CPDistributionPlan = {
+      id: planId,
+      teacherName: masterData.teacherName || 'Guru Pengampu',
+      teacherNip: (masterData as any).teacherNip || this.getSchoolProfile(userId).teacherNip,
+      subject: masterData.subject,
+      schoolName: masterData.schoolName || this.getSchoolProfile(userId).schoolName,
+      level: masterData.level,
+      grade: masterData.grade,
+      phase: masterData.phase,
+      academicYear: masterData.academicYear || this.getAcademicYear(userId) || '2026/2027',
+      semesterOption: 'all',
+      totalHoursPerYear: masterData.totalHoursPerYear || (totSem1 + totSem2),
+      totalTPCount: (sem1.length) + (sem2.length),
+      jpPerWeek: masterData.jpPerWeek || 3,
+      timeAllocationPerWeek: masterData.timeAllocationPerWeek,
+      cpText: masterData.cpText,
+      elements: masterData.elements?.map(e => ({ name: e.name, description: e.description })),
+      materialsSem1: sem1,
+      materialsSem2: sem2,
+      totalHoursSem1: totSem1,
+      totalHoursSem2: totSem2,
+      createdAt: masterData.uploadedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.saveCPDistribution(distPlan, userId);
+
+    // Also register in CP References bank
+    const refId = `ref-master-${masterData.id || Date.now()}`;
+    const cpRef: CPReference = {
+      id: refId,
+      title: `[Master Dokumen] ${masterData.subject} (${masterData.level} - ${masterData.phase})`,
+      level: masterData.level,
+      phase: masterData.phase,
+      grade: typeof masterData.grade === 'number' ? masterData.grade : parseInt(String(masterData.grade)) || 10,
+      subject: masterData.subject,
+      curriculumVersion: 'Pendekatan Deep Learning 2026/2027',
+      uploadedAt: masterData.uploadedAt || new Date().toISOString().substring(0, 16),
+      uploadedBy: masterData.teacherName || 'Admin Master',
+      fileName: masterData.fileName,
+      cpText: masterData.cpText,
+      elements: (masterData.elements || []).map(e => ({
+        name: e.name,
+        description: e.description,
+        competencies: e.competencies || ['Pemahaman Konsep', 'Keterampilan Proses', 'Nalar Kritis 6C'],
+        essentialMaterials: e.essentialMaterials || [masterData.subject],
+      })),
+      rawText: masterData.fullMarkdownReport || masterData.cpText,
+      aiAnalysisSummary: masterData.executiveSummary,
+    };
+    this.saveCPReference(cpRef, userId);
+
+    // Sync School Profile if needed
+    const currentProfile = this.getSchoolProfile(userId);
+    const updatedProfile: SchoolProfile = {
+      ...currentProfile,
+      teacherName: masterData.teacherName || currentProfile.teacherName,
+      schoolName: masterData.schoolName || currentProfile.schoolName,
+      academicYear: masterData.academicYear || currentProfile.academicYear,
+      jpPerWeek: masterData.jpPerWeek || currentProfile.jpPerWeek,
+      timeAllocationPerWeek: masterData.timeAllocationPerWeek || currentProfile.timeAllocationPerWeek,
+      subject: masterData.subject || currentProfile.subject,
+      level: masterData.level || currentProfile.level,
+      grade: masterData.grade || currentProfile.grade,
+      phase: masterData.phase || currentProfile.phase,
+    };
+    this.saveSchoolProfile(updatedProfile, userId);
+
+    // Sync Kalender Pendidikan JP per week if needed
+    if (masterData.jpPerWeek && masterData.jpPerWeek > 0) {
+      const kaldik = this.getKalenderPendidikan(userId);
+      if (kaldik.semester1 && kaldik.semester1.jpPerWeek !== masterData.jpPerWeek) {
+        kaldik.semester1.jpPerWeek = masterData.jpPerWeek;
+        kaldik.semester1.totalEffectiveHours = (kaldik.semester1.totalEffectiveWeeks || 19) * masterData.jpPerWeek;
+        kaldik.semester1.totalJpSemester = kaldik.semester1.totalEffectiveHours;
+        kaldik.semester1.netTeachingHours = Math.max(0, kaldik.semester1.totalEffectiveHours - (kaldik.semester1.reservedHours || 6));
+      }
+      if (kaldik.semester2 && kaldik.semester2.jpPerWeek !== masterData.jpPerWeek) {
+        kaldik.semester2.jpPerWeek = masterData.jpPerWeek;
+        kaldik.semester2.totalEffectiveHours = (kaldik.semester2.totalEffectiveWeeks || 18) * masterData.jpPerWeek;
+        kaldik.semester2.totalJpSemester = kaldik.semester2.totalEffectiveHours;
+        kaldik.semester2.netTeachingHours = Math.max(0, kaldik.semester2.totalEffectiveHours - (kaldik.semester2.reservedHours || 6));
+      }
+      this.saveKalenderPendidikan(kaldik, userId);
+    }
+  }
+
+  static saveCPReference(ref: CPReference, userId?: string): void {
+    const refs = this.getCPReferences(userId);
+    const idx = refs.findIndex((r) => r.id === ref.id);
+    if (idx >= 0) {
+      refs[idx] = ref;
+    } else {
+      refs.unshift(ref);
+    }
+    this.saveCPReferences(refs, userId);
+  }
+
+  static clearActiveMasterCP(userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.ACTIVE_MASTER_CP, userId);
+    saveToStorage(key, null);
+  }
+
+  static addClass(cls: Omit<ClassRoom, 'id'>, userId?: string): ClassRoom {
+    const classes = this.getClasses(userId);
+    const newClass: ClassRoom = {
+      ...cls,
+      id: `c-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+    };
+    classes.push(newClass);
+    this.saveClasses(classes, userId);
+    return newClass;
+  }
+
+  static updateClass(cls: ClassRoom, userId?: string): void {
+    const classes = this.getClasses(userId).map((c) => (c.id === cls.id ? cls : c));
+    this.saveClasses(classes, userId);
+  }
+
+  static deleteClass(classId: string, userId?: string): void {
+    const classes = this.getClasses(userId).filter((c) => c.id !== classId);
+    this.saveClasses(classes, userId);
+  }
+
+  static addStudent(student: Omit<Student, 'id'>, userId?: string): Student {
+    const students = this.getStudents(userId);
+    const newStudent: Student = {
+      ...student,
+      id: `s-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+    };
+    students.push(newStudent);
+    this.saveStudents(students, userId);
+    return newStudent;
+  }
+
+  static updateStudent(student: Student, userId?: string): void {
+    const students = this.getStudents(userId).map((s) => (s.id === student.id ? student : s));
+    this.saveStudents(students, userId);
+  }
+
+  static deleteStudent(studentId: string, userId?: string): void {
+    const students = this.getStudents(userId).filter((s) => s.id !== studentId);
+    this.saveStudents(students, userId);
+  }
+
+  static batchAddStudents(newStudents: Omit<Student, 'id'>[], userId?: string): Student[] {
+    const current = this.getStudents(userId);
+    const created: Student[] = newStudents.map((s, idx) => ({
+      ...s,
+      id: `s-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 5)}`,
+    }));
+    const updated = [...current, ...created];
+    this.saveStudents(updated, userId);
+    return created;
+  }
+
+  static getFeedbacks(userId?: string): UserFeedback[] {
+    const key = this.getUserScopedKey(KEYS.FEEDBACKS, userId);
+    return loadFromStorage<UserFeedback[]>(key, []);
+  }
+
+  static saveFeedbacks(feedbacks: UserFeedback[], userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.FEEDBACKS, userId);
+    saveToStorage(key, feedbacks);
+  }
+
+  static getSupabaseConfig(): SupabaseConfig {
+    return {
+      url: '',
+      apiKey: '',
+      autoSync: false,
+      syncStatus: 'idle',
+    };
+  }
+
+  static saveSupabaseConfig(_config: SupabaseConfig): void {
+    // Supabase has been permanently disconnected
+    try {
+      window.localStorage.removeItem('agk_supabase_config');
+    } catch {}
+  }
+
+  static getAcademicYear(userId?: string): string {
+    const kaldik = this.getKalenderPendidikan(userId);
+    return kaldik.tahunAjaran || kaldik.academicYear || '2026/2027';
+  }
+
+  /**
+   * Profil sekolah & guru: Terisolasi per pengguna.
+   * Pengguna baru dimulai dari awal bersih sesuai data pendaftarannya sendiri.
+   */
+  static getSchoolProfile(userId?: string): SchoolProfile {
+    const currentUser = this.getCurrentUser();
+    const key = this.getUserScopedKey(KEYS.SCHOOL_PROFILE, userId);
+
+    const isAdmin =
+      currentUser?.role === 'admin' ||
+      currentUser?.email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase();
+
+    const defaultProfile: SchoolProfile = isAdmin
+      ? { ...DEFAULT_SCHOOL_PROFILE }
+      : {
+          schoolName: currentUser?.school || '',
+          npsn: '',
+          address: '',
+          headmasterName: '',
+          headmasterNip: '',
+          teacherName: currentUser?.name || '',
+          teacherNip: '',
+          city: '',
+          semester: 'Ganjil',
+          academicYear: '2026/2027',
+          subject: currentUser?.subject || '',
+          level: 'SMA',
+          grade: 10,
+          phase: 'Fase E',
+          jpPerWeek: 3,
+          totalHoursPerYear: 108,
+          timeAllocationPerWeek: '45 Menit',
+          cpText: '',
+        };
+
+    const profile = loadFromStorage<SchoolProfile>(key, defaultProfile);
+    if (!profile) {
+      return defaultProfile;
+    }
+    return profile;
+  }
+
+  static saveSchoolProfile(profile: SchoolProfile, userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.SCHOOL_PROFILE, userId);
+    saveToStorage(key, profile);
+
+    const yr = profile.academicYear?.trim();
+    if (yr) {
+      const kaldik = this.getKalenderPendidikan(userId);
+      if (kaldik && (kaldik.tahunAjaran !== yr || kaldik.academicYear !== yr)) {
+        kaldik.tahunAjaran = yr;
+        kaldik.academicYear = yr;
+        if (kaldik.semester1) kaldik.semester1.academicYear = yr;
+        if (kaldik.semester2) kaldik.semester2.academicYear = yr;
+        this.saveKalenderPendidikan(kaldik, userId);
+      }
+    }
+
+    // Synchronize school & teacher names across active master CP and CP distribution plans
+    const masterCP = this.getActiveMasterCP(userId);
+    if (masterCP) {
+      let changed = false;
+      if (profile.teacherName && masterCP.teacherName !== profile.teacherName) {
+        masterCP.teacherName = profile.teacherName;
+        changed = true;
+      }
+      if (profile.schoolName && masterCP.schoolName !== profile.schoolName) {
+        masterCP.schoolName = profile.schoolName;
+        changed = true;
+      }
+      if (yr && masterCP.academicYear !== yr) {
+        masterCP.academicYear = yr;
+        changed = true;
+      }
+      if (changed) {
+        this.setActiveMasterCP(masterCP, userId);
+      }
+    }
+
+    const plans = this.getCPDistributions(userId);
+    if (plans.length > 0) {
+      let plansChanged = false;
+      const updatedPlans = plans.map(p => {
+        let pChanged = false;
+        const newP = { ...p };
+        if (profile.teacherName && p.teacherName !== profile.teacherName) {
+          newP.teacherName = profile.teacherName;
+          pChanged = true;
+        }
+        if (profile.schoolName && p.schoolName !== profile.schoolName) {
+          newP.schoolName = profile.schoolName;
+          pChanged = true;
+        }
+        if (yr && p.academicYear !== yr) {
+          newP.academicYear = yr;
+          pChanged = true;
+        }
+        if (pChanged) plansChanged = true;
+        return newP;
+      });
+      if (plansChanged) {
+        this.saveCPDistributions(updatedPlans, userId);
+      }
+    }
+  }
+
+  static getAdminSettings(): AdminSystemSettings {
+    return loadFromStorage<AdminSystemSettings>(KEYS.ADMIN_SETTINGS, DEFAULT_ADMIN_SETTINGS);
+  }
+
+  static saveAdminSettings(partialSettings: Partial<AdminSystemSettings>): AdminSystemSettings {
+    const current = this.getAdminSettings();
+    const updated: AdminSystemSettings = {
+      ...current,
+      ...partialSettings,
+      lastUpdated: new Date().toISOString(),
+    };
+    saveToStorage(KEYS.ADMIN_SETTINGS, updated);
+
+    // Asynchronously synchronize with backend
+    try {
+      if (typeof window !== 'undefined' && window.fetch) {
+        fetch('/api/admin/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated),
+        }).catch(() => {
+          // Ignore network errors gracefully in background
+        });
+      }
+    } catch {
+      // Ignore background sync errors
+    }
+
+    return updated;
+  }
+
+  /**
+   * Helper terpadu untuk mengambil seluruh ekosistem data kurikulum yang saling tersinkronisasi
+   * secara otomatis menyesuaikan Jenjang dan Kelas yang dipilih berdasarkan analisis CP
+   */
+  static getSyncedCurriculumContext(subjectFilter?: string, gradeFilter?: number | string, levelFilter?: string, userId?: string) {
+    const currentUser = this.getCurrentUser();
+    const schoolProfile = this.getSchoolProfile(userId);
+    const kaldik = this.getKalenderPendidikan(userId);
+    const activeMaster = this.getActiveMasterCP(userId);
+    const allPlans = this.getCPDistributions(userId);
+
+    const targetSub = subjectFilter || schoolProfile?.subject || activeMaster?.subject || 'Fisika';
+    const targetLvl = (levelFilter || schoolProfile?.level || activeMaster?.level || 'SMA') as 'SMA' | 'SMP' | 'SD' | 'SMK';
+    const targetGrade = Number(gradeFilter) || Number(schoolProfile?.grade) || Number(activeMaster?.grade) || (targetLvl === 'SD' ? 4 : targetLvl === 'SMP' ? 7 : 10);
+    
+    // Find matching distribution plan for subject and specific grade if available
+    const matchingPlanWithGrade = allPlans.find(
+      p => p.subject.toLowerCase() === targetSub.toLowerCase() && Number(p.grade) === targetGrade
+    );
+
+    const matchingPlanGeneral = allPlans.find(
+      p => p.subject.toLowerCase() === targetSub.toLowerCase()
+    );
+
+    let effectiveMaster: CPDistributionPlan | ActiveMasterCPData | null = matchingPlanWithGrade || null;
+    if (!effectiveMaster && activeMaster && (!subjectFilter || activeMaster.subject.toLowerCase() === targetSub.toLowerCase()) && (!gradeFilter || Number(activeMaster.grade) === targetGrade)) {
+      effectiveMaster = activeMaster;
+    }
+    if (!effectiveMaster) {
+      effectiveMaster = matchingPlanGeneral || activeMaster || (allPlans.length > 0 ? allPlans[0] : null);
+    }
+
+    // If grade filter differs from effectiveMaster or if materials are empty, generate/fetch grade-aligned materials
+    let sem1Materials = (effectiveMaster && Number(effectiveMaster.grade) === targetGrade) ? (effectiveMaster.materialsSem1 || []) : [];
+    let sem2Materials = (effectiveMaster && Number(effectiveMaster.grade) === targetGrade) ? (effectiveMaster.materialsSem2 || []) : [];
+
+    let cpSummary = effectiveMaster?.cpText || schoolProfile?.cpText || '';
+
+    if (sem1Materials.length === 0 && sem2Materials.length === 0 && (effectiveMaster || allPlans.length > 0)) {
+      const gradePreset = getSubjectPresetByGrade(targetSub, targetLvl, targetGrade);
+      sem1Materials = gradePreset.materialsSem1.map((m, idx) => ({ ...m, id: `sem1-mat-${idx + 1}` }));
+      sem2Materials = gradePreset.materialsSem2.map((m, idx) => ({ ...m, id: `sem2-mat-${idx + 1}` }));
+      cpSummary = gradePreset.cpSummary;
+    }
+
+    const totalHoursSem1 = (effectiveMaster as any)?.totalHoursSem1 || sem1Materials.reduce((s, m) => s + (Number(m.allocatedHours) || 0), 0);
+    const totalHoursSem2 = (effectiveMaster as any)?.totalHoursSem2 || sem2Materials.reduce((s, m) => s + (Number(m.allocatedHours) || 0), 0);
+    const totalHoursPerYear = effectiveMaster?.totalHoursPerYear || schoolProfile?.totalHoursPerYear || (totalHoursSem1 + totalHoursSem2) || 108;
+    const jpPerWeek = effectiveMaster?.jpPerWeek || schoolProfile?.jpPerWeek || kaldik.semester1?.jpPerWeek || 3;
+
+    const resolvedPhase = schoolProfile?.phase || (targetGrade === 10 ? 'Fase E' : targetGrade > 10 ? 'Fase F' : targetGrade >= 7 ? 'Fase D' : targetGrade >= 4 ? 'Fase B/C' : 'Fase A');
+
+    return {
+      schoolProfile,
+      kaldik,
+      activeMaster: effectiveMaster,
+      allPlans,
+      subject: targetSub,
+      level: targetLvl,
+      grade: targetGrade,
+      phase: effectiveMaster?.phase || resolvedPhase,
+      academicYear: effectiveMaster?.academicYear || schoolProfile.academicYear || kaldik.tahunAjaran || '2026/2027',
+      teacherName: schoolProfile.teacherName || effectiveMaster?.teacherName || currentUser?.name || 'Aspian La Ode Madimu, S.Pd. Gr',
+      teacherNip: schoolProfile.teacherNip || '',
+      headmasterName: schoolProfile.headmasterName || (schoolProfile as any).principalName || '',
+      headmasterNip: schoolProfile.headmasterNip || (schoolProfile as any).principalNip || '',
+      schoolName: schoolProfile.schoolName || effectiveMaster?.schoolName || currentUser?.school || '',
+      city: schoolProfile.city || '',
+      jpPerWeek,
+      totalHoursPerYear,
+      totalHoursSem1,
+      totalHoursSem2,
+      sem1Materials,
+      sem2Materials,
+      cpSummary,
+      sem1EffWeeks: kaldik.semester1?.totalEffectiveWeeks || 19,
+      sem2EffWeeks: kaldik.semester2?.totalEffectiveWeeks || 18,
+    };
+  }
+
+  static saveCurrentDraft(draft: { id: string; title: string; content: string; updatedAt: string }, userId?: string): void {
+    const key = this.getUserScopedKey('agk_current_draft', userId);
+    saveToStorage(key, draft);
+  }
+
+  static getCurrentDraft(userId?: string): { id: string; title: string; content: string; updatedAt: string } | null {
+    const key = this.getUserScopedKey('agk_current_draft', userId);
+    return loadFromStorage<{ id: string; title: string; content: string; updatedAt: string } | null>(
+      key,
+      null
+    );
+  }
+
+  static getTheme(): AppThemeConfig {
+    const raw = loadFromStorage<any>('agk_app_theme', null);
+    if (!raw) {
+      return normalizeThemeConfig(null);
+    }
+    // Revert emerald preset back to default clean saas
+    if (raw === 'emerald' || (typeof raw === 'object' && raw?.preset === 'emerald')) {
+      const reverted = normalizeThemeConfig({ ...(typeof raw === 'object' ? raw : {}), preset: 'saas' });
+      saveToStorage('agk_app_theme', reverted);
+      return reverted;
+    }
+    return normalizeThemeConfig(raw);
+  }
+
+  static saveTheme(theme: AppTheme): void {
+    const normalized = normalizeThemeConfig(theme);
+    saveToStorage('agk_app_theme', normalized);
+  }
+
+  // ==========================================
+  // TOKEN & DAILY AI QUOTA MANAGEMENT (MAX 20/HARI)
+  // ==========================================
+
+  /**
+   * Mendapatkan string tanggal hari ini dalam format YYYY-MM-DD lokal
+   */
+  static getTodayDateString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  /**
+   * Menghitung informasi siklus tagihan bulanan berdasarkan tanggal persetujuan admin (approvalDate)
+   * Kuota direset otomatis pada tanggal yang sama setiap bulannya
+   */
+  static getBillingCycleInfo(approvalDateStr?: string, lastResetDateStr?: string): {
+    billingDay: number;
+    currentCycleStart: string;
+    nextResetDate: string;
+    isNewCycle: boolean;
+  } {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0 - 11
+    const currentDay = now.getDate();
+
+    // Default billing day = 1 jika tidak ada tanggal persetujuan
+    let billingDay = 1;
+    if (approvalDateStr) {
+      const parsed = new Date(approvalDateStr);
+      if (!isNaN(parsed.getTime())) {
+        billingDay = parsed.getDate();
+      } else {
+        const match = approvalDateStr.match(/(\d{4})-(\d{2})-(\d{2})/) || approvalDateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (match) {
+          billingDay = parseInt(match[3] || match[1], 10) || 1;
+        }
+      }
+    }
+
+    // Tentukan awal siklus bulan ini
+    let cycleYear = currentYear;
+    let cycleMonth = currentMonth;
+    if (currentDay < billingDay) {
+      cycleMonth -= 1;
+      if (cycleMonth < 0) {
+        cycleMonth = 11;
+        cycleYear -= 1;
+      }
+    }
+
+    const daysInCycleMonth = new Date(cycleYear, cycleMonth + 1, 0).getDate();
+    const actualCycleDay = Math.min(billingDay, daysInCycleMonth);
+    const currentCycleStart = `${cycleYear}-${String(cycleMonth + 1).padStart(2, '0')}-${String(actualCycleDay).padStart(2, '0')}`;
+
+    // Tentukan tanggal reset berikutnya
+    let nextYear = cycleYear;
+    let nextMonth = cycleMonth + 1;
+    if (nextMonth > 11) {
+      nextMonth = 0;
+      nextYear += 1;
+    }
+    const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
+    const actualNextDay = Math.min(billingDay, daysInNextMonth);
+    const nextResetDate = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(actualNextDay).padStart(2, '0')}`;
+
+    const isNewCycle = !lastResetDateStr || lastResetDateStr < currentCycleStart;
+
+    return {
+      billingDay,
+      currentCycleStart,
+      nextResetDate,
+      isNewCycle,
+    };
+  }
+
+  /**
+   * Menghitung status masa aktif akun (1 tahun dari tanggal disetujui admin)
+   * Memberikan peringatan jika masa aktif tersisa <= 7 hari
+   */
+  static getSubscriptionStatus(user: UserAccount): {
+    isExpired: boolean;
+    isExpiringSoon: boolean;
+    daysUntilExpiry: number;
+    expiryDate: string;
+    startDate: string;
+    statusText: string;
+  } {
+    const isAdmin = user.role === 'admin' || user.email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase();
+    if (isAdmin) {
+      return {
+        isExpired: false,
+        isExpiringSoon: false,
+        daysUntilExpiry: 9999,
+        expiryDate: '2099-12-31',
+        startDate: user.requestDate || user.approvalDate || '2025-01-01',
+        statusText: 'Akses Penuh Permanen (Administrator)',
+      };
+    }
+
+    const startDateStr = user.subscriptionStartDate || (user.approvalDate ? user.approvalDate.split(' ')[0] : null) || user.requestDate.split(' ')[0] || this.getTodayDateString();
+    let expiryDateStr = user.subscriptionExpiryDate;
+    if (!expiryDateStr) {
+      const startDate = new Date(startDateStr);
+      if (!isNaN(startDate.getTime())) {
+        const expDate = new Date(startDate);
+        expDate.setFullYear(expDate.getFullYear() + 1);
+        expiryDateStr = expDate.toISOString().split('T')[0];
+      } else {
+        const expDate = new Date();
+        expDate.setFullYear(expDate.getFullYear() + 1);
+        expiryDateStr = expDate.toISOString().split('T')[0];
+      }
+    }
+
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const expiryParsed = new Date(expiryDateStr);
+    const expiryMidnight = new Date(expiryParsed.getFullYear(), expiryParsed.getMonth(), expiryParsed.getDate()).getTime();
+
+    const diffMs = expiryMidnight - todayMidnight;
+    const daysUntilExpiry = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    const isExpired = daysUntilExpiry < 0;
+    const isExpiringSoon = daysUntilExpiry >= 0 && daysUntilExpiry <= 7;
+
+    let statusText = 'Aktif (1 Tahun)';
+    if (isExpired) {
+      statusText = `Kedaluwarsa (${Math.abs(daysUntilExpiry)} hari yang lalu)`;
+    } else if (isExpiringSoon) {
+      statusText = `Peringatan: Berakhir dalam ${daysUntilExpiry} hari`;
+    } else {
+      statusText = `Aktif (Sisa ${daysUntilExpiry} hari)`;
+    }
+
+    return {
+      isExpired,
+      isExpiringSoon,
+      daysUntilExpiry,
+      expiryDate: expiryDateStr,
+      startDate: startDateStr,
+      statusText,
+    };
+  }
+
+  /**
+   * Cek dan ambil status kuota token akun pengguna
+   * Kuota standar: 35 kali generate (500.000 token/bulan) untuk 1 orang guru
+   * Otomatis direset pada tanggal yang sama saat mendapat ijin akses dari admin setiap bulannya
+   */
+  static getTokenQuotaStatus(targetUser?: UserAccount | null): TokenQuotaStatus {
+    const user = targetUser !== undefined ? targetUser : this.getCurrentUser();
+    const todayStr = this.getTodayDateString();
+
+    if (!user) {
+      return {
+        monthlyUsed: 0,
+        monthlyLimit: 35,
+        monthlyTokensUsed: 0,
+        monthlyTokensLimit: 500000,
+        monthlyRemaining: 0,
+        monthlyTokensRemaining: 0,
+        monthlyResetDate: todayStr,
+        billingCycleDay: 1,
+        used: 0,
+        limit: 35,
+        extra: 0,
+        totalAllowed: 35,
+        remaining: 0,
+        isExhausted: true,
+        resetDate: todayStr,
+        isAdmin: false,
+        daysUntilExpiry: 0,
+        isExpiringSoon: false,
+        isExpired: true,
+        subscriptionStatusText: 'Sesi Belum Login',
+        isSubscriptionActive: false,
+      };
+    }
+
+    const isAdmin = user.role === 'admin' || user.email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase();
+    const subInfo = this.getSubscriptionStatus(user);
+
+    // Billing Cycle & Monthly Auto-Reset Check
+    const approvalDate = user.approvalDate || user.requestDate || todayStr;
+    const billingInfo = this.getBillingCycleInfo(approvalDate, user.lastMonthlyResetDate);
+
+    let monthlyUsed = user.monthlyAIClicks ?? 0;
+    let monthlyTokensUsed = user.monthlyTokensUsed ?? 0;
+
+    // Reset otomatis jika sudah memasuki siklus tanggal baru
+    if (billingInfo.isNewCycle) {
+      monthlyUsed = 0;
+      monthlyTokensUsed = 0;
+
+      const updatedUser: UserAccount = {
+        ...user,
+        monthlyAIClicks: 0,
+        monthlyTokensUsed: 0,
+        lastMonthlyResetDate: billingInfo.currentCycleStart,
+        nextMonthlyResetDate: billingInfo.nextResetDate,
+        billingCycleDay: billingInfo.billingDay,
+        subscriptionExpiryDate: user.subscriptionExpiryDate || subInfo.expiryDate,
+        subscriptionStartDate: user.subscriptionStartDate || subInfo.startDate,
+      };
+
+      setTimeout(() => {
+        const allUsers = StorageService.getUsers();
+        const idx = allUsers.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+        if (idx >= 0) {
+          allUsers[idx] = { ...allUsers[idx], ...updatedUser };
+          StorageService.saveUsers(allUsers);
+        }
+        const currentSessionUser = loadFromStorage<UserAccount | null>(KEYS.CURRENT_USER, null);
+        if (currentSessionUser && (currentSessionUser.id === user.id || currentSessionUser.email.toLowerCase() === user.email.toLowerCase())) {
+          saveToStorage(KEYS.CURRENT_USER, updatedUser);
+        }
+      }, 0);
+    }
+
+    const monthlyLimit = user.monthlyAILimit ?? 35;
+    const monthlyTokensLimit = user.monthlyTokensLimit ?? 500000;
+    const extra = user.extraTokens ?? 0;
+    const totalAllowed = monthlyLimit + extra;
+    const remaining = isAdmin ? 999 : Math.max(0, totalAllowed - monthlyUsed);
+    const isExhausted = !isAdmin && (remaining <= 0 || subInfo.isExpired);
+    const monthlyTokensRemaining = isAdmin ? 9999999 : Math.max(0, monthlyTokensLimit - monthlyTokensUsed);
+
+    // Auto-generate notification for expiring subscription (<= 7 days) if not already notified
+    if (subInfo.isExpiringSoon && !isAdmin) {
+      setTimeout(() => {
+        const notifs = StorageService.getNotifications();
+        const hasNotifToday = notifs.some(n => n.title.includes('Peringatan Masa Aktif') && n.timestamp.startsWith(todayStr));
+        if (!hasNotifToday) {
+          StorageService.addNotification({
+            title: `Peringatan Masa Aktif Langganan (${subInfo.daysUntilExpiry} Hari Lagi)`,
+            message: `Masa akses aplikasi untuk akun ${user.name} akan jatuh tempo pada ${subInfo.expiryDate}. Segera lakukan perpanjangan lisensi melalui Admin.`,
+            type: 'system',
+          });
+        }
+      }, 0);
+    }
+
+    return {
+      monthlyUsed,
+      monthlyLimit,
+      monthlyTokensUsed,
+      monthlyTokensLimit,
+      monthlyRemaining: remaining,
+      monthlyTokensRemaining,
+      monthlyResetDate: billingInfo.nextResetDate,
+      billingCycleDay: billingInfo.billingDay,
+
+      used: monthlyUsed,
+      limit: monthlyLimit,
+      extra,
+      totalAllowed,
+      remaining,
+      isExhausted,
+      resetDate: billingInfo.nextResetDate,
+      isAdmin,
+
+      subscriptionStartDate: subInfo.startDate,
+      subscriptionExpiryDate: subInfo.expiryDate,
+      daysUntilExpiry: subInfo.daysUntilExpiry,
+      isExpiringSoon: subInfo.isExpiringSoon,
+      isExpired: subInfo.isExpired,
+      subscriptionStatusText: subInfo.statusText,
+      isSubscriptionActive: !subInfo.isExpired,
+    };
+  }
+
+  /**
+   * Mengonsumsi 1 kali generate AI (dan setara ~14.286 token dari batas 500.000 token/bulan)
+   */
+  static consumeAIToken(
+    targetUser?: UserAccount | null,
+    featureName: string = 'Generasi Dokumen AI',
+    estimatedTokens: number = 14286
+  ): { success: boolean; status: TokenQuotaStatus; message: string } {
+    const user = targetUser !== undefined ? targetUser : this.getCurrentUser();
+    const todayStr = this.getTodayDateString();
+
+    if (!user) {
+      return {
+        success: false,
+        status: this.getTokenQuotaStatus(null),
+        message: 'Silakan login terlebih dahulu untuk menggunakan fitur AI.',
+      };
+    }
+
+    const statusBefore = this.getTokenQuotaStatus(user);
+
+    // 1. Cek masa aktif 1 tahun
+    if (statusBefore.isExpired && !statusBefore.isAdmin) {
+      return {
+        success: false,
+        status: statusBefore,
+        message: `Masa aktif langganan 1 tahun Anda telah berakhir (Jatuh tempo: ${statusBefore.subscriptionExpiryDate}). Silakan hubungi Admin Sekolah untuk perpanjangan akses lisensi.`,
+      };
+    }
+
+    // 2. Cek kuota bulanan (35 kali / 500.000 token)
+    if (statusBefore.isExhausted && !statusBefore.isAdmin) {
+      return {
+        success: false,
+        status: statusBefore,
+        message: `Batas kuota bulanan Anda (${statusBefore.totalAllowed} kali generate / 500.000 token) telah habis. Kuota akan otomatis di-reset pada tanggal ${statusBefore.billingCycleDay} (${statusBefore.monthlyResetDate}) atau gunakan voucher token tambahan.`,
+      };
+    }
+
+    const newMonthlyUsed = statusBefore.monthlyUsed + 1;
+    const newTokensUsed = Math.min(statusBefore.monthlyTokensLimit, statusBefore.monthlyTokensUsed + estimatedTokens);
+    const newTotalEver = (user.totalAIClicksEver ?? 0) + 1;
+
+    const updatedUser: UserAccount = {
+      ...user,
+      monthlyAIClicks: newMonthlyUsed,
+      monthlyTokensUsed: newTokensUsed,
+      dailyAIClicks: newMonthlyUsed,
+      totalAIClicksEver: newTotalEver,
+      lastTokenResetDate: todayStr,
+      lastMonthlyResetDate: user.lastMonthlyResetDate || todayStr,
+      billingCycleDay: statusBefore.billingCycleDay,
+      subscriptionExpiryDate: statusBefore.subscriptionExpiryDate,
+      subscriptionStartDate: statusBefore.subscriptionStartDate,
+    };
+
+    // Simpan ke database pengguna
+    const allUsers = this.getUsers();
+    const userIndex = allUsers.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+    if (userIndex >= 0) {
+      allUsers[userIndex] = { ...allUsers[userIndex], ...updatedUser };
+      this.saveUsers(allUsers);
+    }
+
+    // Simpan ke sesi aktif
+    const currentUser = loadFromStorage<UserAccount | null>(KEYS.CURRENT_USER, null);
+    if (currentUser && (currentUser.id === user.id || currentUser.email.toLowerCase() === user.email.toLowerCase())) {
+      saveToStorage(KEYS.CURRENT_USER, updatedUser);
+    }
+
+    const statusAfter = this.getTokenQuotaStatus(updatedUser);
+
+    // Audit log
+    this.addAccessLog({
+      userId: user.id,
+      userEmail: user.email,
+      userName: user.name,
+      userRole: user.role,
+      action: `Konsumsi Kuota AI (${featureName})`,
+      details: `Menggunakan 1x Generate AI (~${estimatedTokens.toLocaleString('id-ID')} token). Kuota bulan ini: ${statusAfter.monthlyUsed}/${statusAfter.totalAllowed} kali (${statusAfter.monthlyTokensUsed.toLocaleString('id-ID')}/${statusAfter.monthlyTokensLimit.toLocaleString('id-ID')} token). Reset berikutnya: ${statusAfter.monthlyResetDate}.`,
+      status: 'success',
+    });
+
+    return {
+      success: true,
+      status: statusAfter,
+      message: `Dokumen AI berhasil diproses. Sisa kuota bulan ini: ${statusAfter.isAdmin ? 'Unlimited (Admin)' : `${statusAfter.monthlyRemaining}x generate (${statusAfter.monthlyTokensRemaining.toLocaleString('id-ID')} token)`}.`,
+    };
+  }
+
+  /**
+   * Perpanjang masa aktif langganan akun guru oleh Admin (1 Tahun / sesuai durasi)
+   */
+  static renewUserSubscription(
+    userId: string,
+    durationYears: number = 1,
+    paymentNotes?: string
+  ): { success: boolean; message: string; updatedUser?: UserAccount } {
+    const allUsers = this.getUsers();
+    const userIndex = allUsers.findIndex((u) => u.id === userId);
+    if (userIndex < 0) {
+      return { success: false, message: 'Pengguna tidak ditemukan.' };
+    }
+
+    const user = allUsers[userIndex];
+    const now = new Date();
+    const currentExpiry = user.subscriptionExpiryDate ? new Date(user.subscriptionExpiryDate) : now;
+    const baseDate = currentExpiry > now ? currentExpiry : now;
+
+    const newExpiry = new Date(baseDate);
+    newExpiry.setFullYear(newExpiry.getFullYear() + durationYears);
+    const newExpiryStr = newExpiry.toISOString().split('T')[0];
+
+    const updatedUser: UserAccount = {
+      ...user,
+      status: 'approved',
+      subscriptionStatus: 'active',
+      paymentStatus: 'renewed',
+      subscriptionStartDate: user.subscriptionStartDate || (user.approvalDate ? user.approvalDate.split(' ')[0] : null) || this.getTodayDateString(),
+      subscriptionExpiryDate: newExpiryStr,
+      subscriptionDurationYears: (user.subscriptionDurationYears || 1) + durationYears,
+      subscriptionNotes: paymentNotes || `Perpanjangan lisensi akses ${durationYears} tahun oleh Admin pada ${now.toLocaleDateString('id-ID')}`,
+      monthlyAIClicks: 0, // Reset kuota bulanan baru
+      monthlyTokensUsed: 0,
+      lastMonthlyResetDate: this.getTodayDateString(),
+    };
+
+    allUsers[userIndex] = updatedUser;
+    this.saveUsers(allUsers);
+
+    const currentUser = this.getCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      saveToStorage(KEYS.CURRENT_USER, updatedUser);
+    }
+
+    this.addAccessLog({
+      userId: user.id,
+      userEmail: user.email,
+      userName: user.name,
+      userRole: user.role,
+      action: 'Perpanjangan Masa Aktif Langganan (1 Tahun)',
+      details: `Admin ${DEFAULT_ADMIN.name} memperpanjang akses ${durationYears} tahun untuk ${user.name} (${user.email}). Jatuh tempo baru: ${newExpiryStr}. Catatan: ${paymentNotes || 'Pembayaran/berlangganan terverifikasi'}.`,
+      status: 'success',
+    });
+
+    this.addNotification({
+      title: 'Masa Aktif Akses Diperpanjang',
+      message: `Selamat! Masa aktif akun guru ${user.name} telah berhasil diperpanjang 1 tahun hingga ${newExpiryStr}.`,
+      type: 'access_approved',
+    });
+
+    return {
+      success: true,
+      message: `Akses akun ${user.name} berhasil diperpanjang 1 tahun hingga ${newExpiryStr}.`,
+      updatedUser,
+    };
+  }
+
+  /**
+   * Reset kuota generate bulanan akun tertentu menjadi 0 (Admin action)
+   */
+  static resetUserMonthlyTokens(userId: string): void {
+    const allUsers = this.getUsers();
+    const user = allUsers.find((u) => u.id === userId);
+    if (!user) return;
+
+    const updatedUser: UserAccount = {
+      ...user,
+      monthlyAIClicks: 0,
+      monthlyTokensUsed: 0,
+      dailyAIClicks: 0,
+      lastMonthlyResetDate: this.getTodayDateString(),
+    };
+
+    const updated = allUsers.map((u) => (u.id === userId ? updatedUser : u));
+    this.saveUsers(updated);
+
+    const currentUser = this.getCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      saveToStorage(KEYS.CURRENT_USER, updatedUser);
+    }
+
+    this.addAccessLog({
+      userId: user.id,
+      userEmail: user.email,
+      userName: user.name,
+      userRole: user.role,
+      action: 'Reset Kuota Token AI Bulanan',
+      details: `Admin mereset kuota bulanan akun ${user.name} (${user.email}) menjadi 0/${user.monthlyAILimit || 35} generate (0/${user.monthlyTokensLimit || 500000} token).`,
+      status: 'success',
+    });
+  }
+
+  /**
+   * Reset kuota klik harian (alias untuk reset kuota bulanan)
+   */
+  static resetUserDailyTokens(userId: string): void {
+    this.resetUserMonthlyTokens(userId);
+  }
+
+  /**
+   * Tambah bonus token extra untuk akun tertentu
+   */
+  static addUserExtraTokens(userId: string, extraAmount: number): void {
+    const allUsers = this.getUsers();
+    const user = allUsers.find((u) => u.id === userId);
+    if (!user) return;
+
+    const currentExtra = user.extraTokens ?? 0;
+    const updatedUser: UserAccount = {
+      ...user,
+      extraTokens: Math.max(0, currentExtra + extraAmount),
+    };
+
+    const updated = allUsers.map((u) => (u.id === userId ? updatedUser : u));
+    this.saveUsers(updated);
+
+    const currentUser = this.getCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      saveToStorage(KEYS.CURRENT_USER, updatedUser);
+    }
+
+    this.addAccessLog({
+      userId: user.id,
+      userEmail: user.email,
+      userName: user.name,
+      userRole: user.role,
+      action: 'Penambahan Bonus Token AI',
+      details: `Admin menambahkan ${extraAmount} bonus generate token untuk akun ${user.name} (${user.email}).`,
+      status: 'success',
+    });
+  }
+
+  /**
+   * Ubah limit bulanan & token akun pengguna oleh Admin
+   */
+  static setUserMonthlyLimit(userId: string, newGenerateLimit: number, newTokenLimit?: number): void {
+    const allUsers = this.getUsers();
+    const user = allUsers.find((u) => u.id === userId);
+    if (!user) return;
+
+    const updatedUser: UserAccount = {
+      ...user,
+      monthlyAILimit: Math.max(1, newGenerateLimit),
+      monthlyTokensLimit: newTokenLimit || (newGenerateLimit * 14286),
+      dailyAILimit: Math.max(1, newGenerateLimit),
+    };
+
+    const updated = allUsers.map((u) => (u.id === userId ? updatedUser : u));
+    this.saveUsers(updated);
+
+    const currentUser = this.getCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      saveToStorage(KEYS.CURRENT_USER, updatedUser);
+    }
+  }
+
+  /**
+   * Ubah limit harian dasar akun pengguna (kompatibilitas)
+   */
+  static setUserDailyLimit(userId: string, newLimit: number): void {
+    this.setUserMonthlyLimit(userId, newLimit);
+  }
+
+  /**
+   * Mengambil daftar seluruh Voucher Token
+   */
+  static getTokenVouchers(): TokenVoucher[] {
+    return loadFromStorage<TokenVoucher[]>(KEYS.TOKEN_VOUCHERS, INITIAL_TOKEN_VOUCHERS);
+  }
+
+  /**
+   * Menyimpan daftar Voucher Token
+   */
+  static saveTokenVouchers(vouchers: TokenVoucher[]): void {
+    saveToStorage(KEYS.TOKEN_VOUCHERS, vouchers);
+  }
+
+  /**
+   * Membuat Voucher Token Baru oleh Admin
+   */
+  static createTokenVoucher(code: string, extraClicks: number, description?: string): TokenVoucher {
+    const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    const vouchers = this.getTokenVouchers();
+
+    const existing = vouchers.find((v) => v.code.toUpperCase() === cleanCode);
+    if (existing) {
+      throw new Error(`Kode voucher "${cleanCode}" sudah ada.`);
+    }
+
+    const newVoucher: TokenVoucher = {
+      id: `vouch-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      code: cleanCode,
+      extraClicks: Math.max(1, extraClicks),
+      isRedeemed: false,
+      createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      createdBy: DEFAULT_ADMIN.name,
+      description: description || `Bonus Tambahan ${extraClicks} Klik AI`,
+    };
+
+    vouchers.unshift(newVoucher);
+    this.saveTokenVouchers(vouchers);
+
+    return newVoucher;
+  }
+
+  /**
+   * Hapus Voucher Token
+   */
+  static deleteTokenVoucher(voucherId: string): void {
+    const vouchers = this.getTokenVouchers().filter((v) => v.id !== voucherId);
+    this.saveTokenVouchers(vouchers);
+  }
+
+  /**
+   * Redeem / Klaim Voucher Token oleh Akun Pengguna
+   */
+  static redeemTokenVoucher(
+    inputCode: string,
+    targetUser: UserAccount
+  ): { success: boolean; message: string; extraAdded: number } {
+    const cleanCode = inputCode.trim().toUpperCase();
+    if (!cleanCode) {
+      return { success: false, message: 'Masukkan kode voucher yang valid.', extraAdded: 0 };
+    }
+
+    const vouchers = this.getTokenVouchers();
+    const voucher = vouchers.find((v) => v.code.toUpperCase() === cleanCode);
+
+    if (!voucher) {
+      return {
+        success: false,
+        message: `Kode voucher "${cleanCode}" tidak ditemukan atau tidak valid.`,
+        extraAdded: 0,
+      };
+    }
+
+    const redeemedList = targetUser.tokenVouchersRedeemed || [];
+    if (redeemedList.includes(cleanCode)) {
+      return {
+        success: false,
+        message: `Akun Anda sudah pernah mengklaim voucher "${cleanCode}".`,
+        extraAdded: 0,
+      };
+    }
+
+    // Update voucher redeemed details
+    voucher.isRedeemed = true;
+    voucher.redeemedBy = `${targetUser.name} (${targetUser.email})`;
+    voucher.redeemedAt = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    this.saveTokenVouchers(vouchers);
+
+    // Add extra tokens to user
+    const currentExtra = targetUser.extraTokens ?? 0;
+    const updatedRedeemedList = [...redeemedList, cleanCode];
+
+    const updatedUser: UserAccount = {
+      ...targetUser,
+      extraTokens: currentExtra + voucher.extraClicks,
+      tokenVouchersRedeemed: updatedRedeemedList,
+    };
+
+    const allUsers = this.getUsers();
+    const userIdx = allUsers.findIndex((u) => u.id === targetUser.id || u.email.toLowerCase() === targetUser.email.toLowerCase());
+    if (userIdx >= 0) {
+      allUsers[userIdx] = { ...allUsers[userIdx], ...updatedUser };
+      this.saveUsers(allUsers);
+    }
+
+    saveToStorage(KEYS.CURRENT_USER, updatedUser);
+
+    this.addAccessLog({
+      userId: targetUser.id,
+      userEmail: targetUser.email,
+      userName: targetUser.name,
+      userRole: targetUser.role,
+      action: 'Klaim Voucher Token AI',
+      details: `Pengguna berhasil mengklaim voucher "${cleanCode}" (+${voucher.extraClicks} klik AI).`,
+      status: 'success',
+    });
+
+    return {
+      success: true,
+      message: `Selamat! Voucher "${cleanCode}" berhasil diklaim. Anda mendapatkan tambahan +${voucher.extraClicks} klik AI!`,
+      extraAdded: voucher.extraClicks,
+    };
+  }
+
+  // ==========================================
+  // KALENDER PENDIDIKAN & ANALISIS ALOKASI WAKTU
+  // ==========================================
+  static getKalenderPendidikan(userId?: string): KalenderPendidikanData {
+    const key = this.getUserScopedKey(KEYS.KALENDER_PENDIDIKAN, userId);
+    return loadFromStorage<KalenderPendidikanData>(key, DEFAULT_KALENDER_PENDIDIKAN);
+  }
+
+  static saveKalenderPendidikan(data: KalenderPendidikanData, userId?: string): void {
+    const key = this.getUserScopedKey(KEYS.KALENDER_PENDIDIKAN, userId);
+    const yr = (data.tahunAjaran || data.academicYear || '2026/2027').trim();
+    const normalizedData: KalenderPendidikanData = {
+      ...data,
+      tahunAjaran: yr,
+      academicYear: yr,
+      semester1: {
+        ...data.semester1,
+        academicYear: yr,
+      },
+      semester2: {
+        ...data.semester2,
+        academicYear: yr,
+      },
+      lastUpdated: new Date().toISOString(),
+    };
+
+    saveToStorage(key, normalizedData);
+
+    if (yr) {
+      const profile = this.getSchoolProfile(userId);
+      if (profile && profile.academicYear !== yr) {
+        profile.academicYear = yr;
+        this.saveSchoolProfile(profile, userId);
+      }
+
+      const masterCP = this.getActiveMasterCP(userId);
+      if (masterCP && masterCP.academicYear !== yr) {
+        masterCP.academicYear = yr;
+        this.setActiveMasterCP(masterCP, userId);
+      }
+    }
+  }
+}
