@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script>
+      // 1. Auto-redirect to trailing slash on GitHub Pages directory URLs
+      // Ensures relative assets (./assets/...) resolve to the repository folder, avoiding blank white screen
+      (function() {
+        var l = window.location;
+        if (!l.pathname.endsWith('/')) {
+          var segments = l.pathname.split('/');
+          var last = segments[segments.length - 1];
+          if (last && last.indexOf('.') === -1) {
+            l.replace(l.protocol + '//' + l.host + l.pathname + '/' + l.search + l.hash);
+          }
+        }
+      })();
+    </script>
+    <script>
       // Filter benign Vite development websocket reconnection messages from triggering false AIS error warnings
       (function() {
         function isViteMessage(args) {
@@ -90,7 +104,6 @@
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
-      integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+"
       crossorigin="anonymous"
     />
     <script>
@@ -98,7 +111,7 @@
       // MIT License
       // https://github.com/rafgraph/spa-github-pages
       (function(l) {
-        if (l.search[1] === '/' ) {
+        if (l.search && l.search[1] === '/' ) {
           var decoded = l.search.slice(1).split('&').map(function(s) { 
             return s.replace(/~and~/g, '&');
           }).join('?');
@@ -110,8 +123,50 @@
     </script>
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
-    <div id="root"></div>
+    <div id="root">
+      <!-- Anti-White Screen Initial Loader: Automatically replaced once React mounts -->
+      <div id="initial-loader" style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; color: #ffffff; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; box-sizing: border-box; text-align: center;">
+        <div style="width: 58px; height: 58px; border-radius: 16px; background: linear-gradient(135deg, #2563eb, #4f46e5); display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.5); margin-bottom: 20px;">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+            <path d="M6 6h10"/>
+            <path d="M6 10h10"/>
+          </svg>
+        </div>
+        <h1 style="font-size: 19px; font-weight: 800; letter-spacing: -0.025em; margin: 0 0 8px 0; color: #ffffff;">
+          E - Project Guru Digital
+        </h1>
+        <p style="font-size: 12px; color: #94a3b8; margin: 0 0 24px 0; max-width: 320px; line-height: 1.5;">
+          Memuat sistem administrasi & perangkat ajar...
+        </p>
+        <div style="width: 140px; height: 4px; background: #334155; border-radius: 9999px; overflow: hidden; position: relative;">
+          <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 50%; background: #38bdf8; border-radius: 9999px; animation: loader-slide 1.2s infinite ease-in-out;"></div>
+        </div>
+        <div id="loader-fail-msg" style="display: none; margin-top: 24px; font-size: 12px; color: #cbd5e1; max-width: 340px;">
+          <p style="margin: 0 0 10px 0;">Jika tampilan tidak berganti dalam beberapa detik:</p>
+          <button onclick="window.location.reload()" style="background: #2563eb; color: #ffffff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer;">
+            Muat Ulang Halaman
+          </button>
+        </div>
+        <style>
+          @keyframes loader-slide {
+            0% { left: -50%; width: 50%; }
+            50% { left: 25%; width: 70%; }
+            100% { left: 100%; width: 50%; }
+          }
+        </style>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Anti-White Screen Watchdog
+      setTimeout(function() {
+        var failMsg = document.getElementById('loader-fail-msg');
+        if (failMsg && document.getElementById('initial-loader')) {
+          failMsg.style.display = 'block';
+        }
+      }, 5000);
+    </script>
   </body>
 </html>
 
