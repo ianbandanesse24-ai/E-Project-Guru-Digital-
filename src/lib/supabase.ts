@@ -188,6 +188,9 @@ export class SupabaseService {
                     statusText: proxyData.statusText || 'OK',
                     headers: new Headers(proxyData.headers || {}),
                   });
+                } else if (proxyRes.status === 404) {
+                  // Lingkungan hosting statis (seperti GitHub Pages) tanpa backend proxy
+                  throw err;
                 } else {
                   const proxyErrData = await proxyRes.json().catch(() => ({}));
                   const errMsg = proxyErrData?.error || 'Gagal menghubungi Supabase Cloud (Domain tidak terjangkau).';

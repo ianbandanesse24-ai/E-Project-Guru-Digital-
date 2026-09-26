@@ -51,16 +51,44 @@ export const AdminApiKeyManager: React.FC = () => {
         const data = await res.json();
         setKeyStatus(data);
       } else {
+        const localKey = typeof window !== 'undefined' ? localStorage.getItem('agk_client_gemini_key') : null;
+        if (localKey) {
+          setKeyStatus({
+            configured: true,
+            source: 'custom',
+            maskedKey: localKey.substring(0, 6) + '...' + localKey.substring(localKey.length - 4),
+            hasCustomKey: true,
+            preferredModel: 'gemini-2.5-flash',
+          });
+        } else {
+          setKeyStatus({
+            configured: false,
+            source: 'none',
+            maskedKey: '',
+            hasCustomKey: false,
+            preferredModel: 'gemini-2.5-flash',
+          });
+        }
+      }
+    } catch {
+      const localKey = typeof window !== 'undefined' ? localStorage.getItem('agk_client_gemini_key') : null;
+      if (localKey) {
+        setKeyStatus({
+          configured: true,
+          source: 'custom',
+          maskedKey: localKey.substring(0, 6) + '...' + localKey.substring(localKey.length - 4),
+          hasCustomKey: true,
+          preferredModel: 'gemini-2.5-flash',
+        });
+      } else {
         setKeyStatus({
           configured: false,
           source: 'none',
           maskedKey: '',
           hasCustomKey: false,
-          preferredModel: 'gemini-3.8-flash',
+          preferredModel: 'gemini-2.5-flash',
         });
       }
-    } catch (e) {
-      console.error(e);
     } finally {
       setIsLoadingStatus(false);
     }
@@ -87,45 +115,96 @@ export const AdminApiKeyManager: React.FC = () => {
         body: JSON.stringify({ apiKey: apiKeyInput.trim() }),
       });
 
-      const data = await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setFeedback({
+            text: 'API Key Google AI Studio Berhasil Diverifikasi dan Tersinkronisasi!',
+            type: 'success',
+          });
+          setTestResult({
+            success: true,
+            message: data.message,
+            reply: data.testResponse,
+            latencyMs: data.latencyMs,
+            modelUsed: data.modelUsed,
+            timestamp: new Date().toLocaleTimeString('id-ID'),
+          });
+          setApiKeyInput('');
+          fetchKeyStatus();
 
-      if (res.ok && data.success) {
-        setFeedback({
-          text: 'API Key Google AI Studio Berhasil Diverifikasi dan Tersinkronisasi!',
-          type: 'success',
-        });
-        setTestResult({
-          success: true,
-          message: data.message,
-          reply: data.testResponse,
-          latencyMs: data.latencyMs,
-          modelUsed: data.modelUsed,
-          timestamp: new Date().toLocaleTimeString('id-ID'),
-        });
-        setApiKeyInput('');
-        fetchKeyStatus();
+          // Audit log
+          StorageService.addAccessLog({
+            userId: DEFAULT_ADMIN.id,
+            userEmail: DEFAULT_ADMIN.email,
+            userName: DEFAULT_ADMIN.name,
+            userRole: 'admin',
+            action: 'Pembaruan API Key Google AI Studio',
+            details: `Sinkronisasi API Key Google AI Studio sukses (${data.latencyMs}ms, Model: ${data.modelUsed}).`,
+            status: 'success',
+          });
+          return;
+        }
+      }
+      throw new Error('Server API tidak merespons, mencoba verifikasi langsung...');
+    } catch {
+      // Fallback: Verifikasi langsung ke Google Gemini API (untuk deployment statis di GitHub Pages)
+      try {
+        const startTime = Date.now();
+        const clientRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeyInput.trim()}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: 'Halo AMD AI' }] }],
+            }),
+          }
+        );
 
-        // Audit log
-        StorageService.addAccessLog({
-          userId: DEFAULT_ADMIN.id,
-          userEmail: DEFAULT_ADMIN.email,
-          userName: DEFAULT_ADMIN.name,
-          userRole: 'admin',
-          action: 'Pembaruan API Key Google AI Studio',
-          details: `Sinkronisasi API Key Google AI Studio sukses (${data.latencyMs}ms, Model: ${data.modelUsed}).`,
-          status: 'success',
-        });
-      } else {
+        if (clientRes.ok) {
+          const clientData = await clientRes.json();
+          const replyText = clientData?.candidates?.[0]?.content?.parts?.[0]?.text || 'Koneksi aktif';
+          localStorage.setItem('agk_client_gemini_key', apiKeyInput.trim());
+
+          setFeedback({
+            text: 'API Key Google AI Studio Berhasil Diverifikasi dan Tersimpan di Browser (Mode GitHub Pages)!',
+            type: 'success',
+          });
+          setTestResult({
+            success: true,
+            message: 'Koneksi langsung ke Google AI Studio terverifikasi aktif!',
+            reply: replyText,
+            latencyMs: Date.now() - startTime,
+            modelUsed: 'gemini-2.5-flash',
+            timestamp: new Date().toLocaleTimeString('id-ID'),
+          });
+          setApiKeyInput('');
+          fetchKeyStatus();
+
+          StorageService.addAccessLog({
+            userId: DEFAULT_ADMIN.id,
+            userEmail: DEFAULT_ADMIN.email,
+            userName: DEFAULT_ADMIN.name,
+            userRole: 'admin',
+            action: 'Update API Key Gemini (Klien)',
+            details: 'Administrator menyimpan API Key Google AI Studio secara lokal di browser.',
+            status: 'success',
+          });
+        } else {
+          const errBody = await clientRes.json().catch(() => ({}));
+          const errDetail = errBody?.error?.message || 'API Key ditolak oleh Google AI Studio.';
+          setFeedback({
+            text: `Verifikasi gagal: ${errDetail}`,
+            type: 'error',
+          });
+        }
+      } catch (clientErr: any) {
         setFeedback({
-          text: data.error || 'Gagal memverifikasi API Key ke Google AI Studio.',
+          text: `Terjadi kendala verifikasi: ${clientErr.message || 'Periksa koneksi internet.'}`,
           type: 'error',
         });
       }
-    } catch (err: any) {
-      setFeedback({
-        text: `Terjadi kendala jaringan: ${err.message || 'Koneksi gagal'}`,
-        type: 'error',
-      });
     } finally {
       setIsSaving(false);
     }
@@ -143,28 +222,70 @@ export const AdminApiKeyManager: React.FC = () => {
         body: JSON.stringify({ skillType: 'ping' }),
       });
 
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        setTestResult({
-          success: true,
-          message: data.message,
-          reply: data.reply,
-          latencyMs: data.latencyMs,
-          modelUsed: data.modelUsed,
-          timestamp: new Date().toLocaleTimeString('id-ID'),
-        });
-      } else {
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setTestResult({
+            success: true,
+            message: data.message,
+            reply: data.reply,
+            latencyMs: data.latencyMs,
+            modelUsed: data.modelUsed,
+            timestamp: new Date().toLocaleTimeString('id-ID'),
+          });
+          return;
+        }
+      }
+      throw new Error('Server proxy tidak merespons');
+    } catch {
+      // Fallback pengujian langsung di klien (GitHub Pages)
+      const localKey = localStorage.getItem('agk_client_gemini_key');
+      if (!localKey) {
         setTestResult({
           success: false,
-          message: data.error || 'Gagal menguji koneksi Google AI Studio.',
+          message: 'Belum ada API Key yang tersimpan. Silakan masukkan dan simpan API Key di atas.',
+        });
+        setIsTestingPing(false);
+        return;
+      }
+
+      try {
+        const startTime = Date.now();
+        const clientRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${localKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: 'Tes koneksi sistem AMD AI' }] }],
+            }),
+          }
+        );
+
+        if (clientRes.ok) {
+          const clientData = await clientRes.json();
+          const replyText = clientData?.candidates?.[0]?.content?.parts?.[0]?.text || 'OK';
+          setTestResult({
+            success: true,
+            message: 'Koneksi ke Google AI Studio berhasil (Mode Langsung Klien)!',
+            reply: replyText,
+            latencyMs: Date.now() - startTime,
+            modelUsed: 'gemini-2.5-flash',
+            timestamp: new Date().toLocaleTimeString('id-ID'),
+          });
+        } else {
+          const errData = await clientRes.json().catch(() => ({}));
+          setTestResult({
+            success: false,
+            message: errData?.error?.message || 'Gagal terhubung ke Google AI Studio.',
+          });
+        }
+      } catch (clientErr: any) {
+        setTestResult({
+          success: false,
+          message: `Gagal menguji koneksi: ${clientErr.message}`,
         });
       }
-    } catch (err: any) {
-      setTestResult({
-        success: false,
-        message: `Terjadi kendala jaringan saat pengujian: ${err.message}`,
-      });
     } finally {
       setIsTestingPing(false);
     }
@@ -176,17 +297,15 @@ export const AdminApiKeyManager: React.FC = () => {
     }
 
     try {
-      const res = await fetch('/api/admin/reset-gemini-key', {
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (data.success) {
-        setFeedback({ text: data.message, type: 'success' });
-        setTestResult(null);
-        fetchKeyStatus();
-      }
-    } catch (err: any) {
-      setFeedback({ text: 'Gagal mereset API Key.', type: 'error' });
+      localStorage.removeItem('agk_client_gemini_key');
+      await fetch('/api/admin/reset-gemini-key', { method: 'POST' }).catch(() => {});
+      setFeedback({ text: 'API Key berhasil direset ke konfigurasi awal.', type: 'success' });
+      setTestResult(null);
+      fetchKeyStatus();
+    } catch {
+      localStorage.removeItem('agk_client_gemini_key');
+      setFeedback({ text: 'API Key browser berhasil dibersihkan.', type: 'success' });
+      fetchKeyStatus();
     }
   };
 

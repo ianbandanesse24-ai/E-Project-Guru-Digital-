@@ -77,10 +77,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="E - Project Guru Digital" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="manifest" href="/manifest.json" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/amd_logo.png" />
-    <link rel="icon" type="image/png" sizes="64x64" href="/amd_logo.png" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./amd_logo.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="./amd_logo.png" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -93,6 +93,21 @@
       integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+"
       crossorigin="anonymous"
     />
+    <script>
+      // Single Page Apps for GitHub Pages redirect receiver
+      // MIT License
+      // https://github.com/rafgraph/spa-github-pages
+      (function(l) {
+        if (l.search[1] === '/' ) {
+          var decoded = l.search.slice(1).split('&').map(function(s) { 
+            return s.replace(/~and~/g, '&');
+          }).join('?');
+          window.history.replaceState(null, null,
+              l.pathname.slice(0, -1) + decoded + l.hash
+          );
+        }
+      }(window.location));
+    </script>
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
     <div id="root"></div>

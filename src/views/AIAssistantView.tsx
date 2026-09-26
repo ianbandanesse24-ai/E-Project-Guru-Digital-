@@ -745,7 +745,36 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({ initialDocType
         }
       }
     } catch (err: any) {
-      console.warn('Network request failed, generating via client-side expert engine:', err);
+      console.warn('Network request failed, attempting direct Gemini client or expert engine:', err);
+    }
+
+    // Try client-side direct Gemini call if on static hosting (e.g. GitHub Pages) and key is saved
+    if (!content && typeof window !== 'undefined') {
+      const clientApiKey = localStorage.getItem('agk_client_gemini_key');
+      if (clientApiKey) {
+        try {
+          const directPrompt = `Anda adalah pakar Kurikulum Merdeka & Deep Learning Indonesia. Buatlah ${activeDocType} resmi dan lengkap untuk mata pelajaran ${subject}, jenjang ${level}, kelas ${grade}, fase ${currentPhase}, semester ${semester}, materi/topik "${resolvedTopic}". ${customPrompt ? `Instruksi khusus: ${customPrompt}` : ''}`;
+          const directRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${clientApiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: directPrompt }] }],
+              }),
+            }
+          );
+          if (directRes.ok) {
+            const directData = await directRes.json();
+            const directText = directData?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (directText && directText.trim().length > 50) {
+              content = directText;
+            }
+          }
+        } catch (directErr) {
+          console.warn('Direct Gemini call fallback notice:', directErr);
+        }
+      }
     }
 
     // Fallback if network or server did not return content

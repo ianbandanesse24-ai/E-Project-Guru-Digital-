@@ -31,8 +31,9 @@ export class OfflineManager {
         return;
       }
       window.addEventListener('load', () => {
+        const swPath = `${import.meta.env.BASE_URL}sw.js`.replace(/\/+/g, '/');
         navigator.serviceWorker
-          .register('/sw.js')
+          .register(swPath)
           .then((registration) => {
             console.log('[PWA] Service Worker registered with scope:', registration.scope);
           })

@@ -1,27 +1,38 @@
 // Service Worker for ADMINISTRASI GURU KREATIF (PWA Offline & Cloud Sync)
-const CACHE_NAME = 'agk-offline-cache-v3';
-const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/favicon.png',
-  '/apple-touch-icon.png',
-  '/icon.svg',
-  '/icon-192.svg',
-  '/icon-512.svg',
-  '/pwa-192x192.png',
-  '/pwa-512x512.png',
-  '/pwa-maskable-512x512.png',
-  'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css'
+const CACHE_NAME = 'agk-offline-cache-v4';
+
+const RELATIVE_ASSETS = [
+  'index.html',
+  'manifest.json',
+  'favicon.png',
+  'apple-touch-icon.png',
+  'icon.svg',
+  'icon-192.svg',
+  'icon-512.svg',
+  'pwa-192x192.png',
+  'pwa-512x512.png',
+  'pwa-maskable-512x512.png'
 ];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW] Precache partial error:', err);
-      });
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const scope = self.registration.scope;
+      // Precache root scope and index.html safely
+      try {
+        await cache.add(scope);
+      } catch (e) {
+        // ignore
+      }
+      for (const asset of RELATIVE_ASSETS) {
+        try {
+          const fullUrl = new URL(asset, scope).toString();
+          await cache.add(fullUrl);
+        } catch (e) {
+          // Skip if missing
+        }
+      }
     })
   );
 });
@@ -62,15 +73,20 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(async () => {
-          const cached = await caches.match(event.request);
+          const scope = self.registration.scope;
+          const cached = (await caches.match(event.request)) ||
+                         (await caches.match(scope)) ||
+                         (await caches.match(new URL('index.html', scope).toString()));
           if (cached) return cached;
-          return caches.match('/index.html') || caches.match('/');
+          return new Response('Offline: Halaman belum tersimpan di cache.', {
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+          });
         })
     );
     return;
   }
 
-  // Handle Static Assets (JS, CSS, SVGs, Fonts, Images, KaTeX): Stale While Revalidate
+  // Handle Static Assets (JS, CSS, SVGs, Fonts, Images): Stale While Revalidate
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)
@@ -83,10 +99,7 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch((err) => {
-          // If offline and no cache match, return fallback
-          return cachedResponse;
-        });
+        .catch(() => cachedResponse);
 
       return cachedResponse || fetchPromise;
     })
