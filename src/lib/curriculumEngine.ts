@@ -119,8 +119,57 @@ export function generateExpertCurriculumDocument(
 
   const generateCoreDoc = (): string => {
     switch (docType) {
-    case 'analisis_cp':
-      return `# ANALISIS CAPAIAN PEMBELAJARAN (CP) TERBARU
+    case 'analisis_cp': {
+      const jpPerWk = params.distributionData?.jpPerWeek || (level === 'SD' ? 4 : level === 'SMP' ? 3 : 3);
+      
+      let sumSem1Jp = 0;
+      let sumSem1Meetings = 0;
+      const sem1Rows = sem1Materials.length > 0
+        ? sem1Materials.map((mat, idx) => {
+            const babName = mat.essentialMaterial || mat.tpName || `Bab ${idx + 1}`;
+            const hours = Number(mat.allocatedHours) || 18;
+            const meetings = mat.meetingCount || Math.max(1, Math.round(hours / jpPerWk));
+            sumSem1Jp += hours;
+            sumSem1Meetings += meetings;
+            const code = mat.tpCode || `TP.${grade}.${idx + 1}`;
+            const elem = mat.elementName || (idx % 2 === 0 ? 'Pemahaman Konseptual' : 'Keterampilan Proses');
+            const assess = mat.assessmentStrategy || (idx % 2 === 0 ? 'Asesmen Formatif (Kuis & Observasi Kinerja)' : 'Asesmen Kinerja & Rubrik Portofolio');
+            const method = mat.deepLearningMethod || (idx % 2 === 0 ? 'Inquiry & Mindful Exploration' : 'Problem-Based Learning & Joyful Lab');
+            return `| **${idx + 1}** | **${code}** | *${elem}* — Peserta didik mampu menganalisis dan mendalami konsep fundamental serta aplikasi ${babName}. | **${babName}** | **${hours} JP** | ${meetings} Pertemuan | ${assess} • *${method}* |`;
+          }).join('\n')
+        : `| **1** | **TP.${grade}.1** | *Pemahaman Konseptual* — Mengidentifikasi, menguraikan, dan menjelaskan struktur dasar ${topic}. | Konsep Dasar & Hakikat ${subject} | **18 JP** | 6 Pertemuan | Formatif Awal & Tes Kinerja • *Inquiry Discovery* |
+| **2** | **TP.${grade}.2** | *Keterampilan Proses* — Menganalisis fenomena, menyelidiki data, dan membuktikan prinsip ${subject}. | Investigasi Empiris & Analisis Kasus ${subject} | **18 JP** | 6 Pertemuan | Observasi Diskusi & Kuis • *Problem-Based Learning* |
+| **3** | **TP.${grade}.3** | *Aplikasi & Refleksi* — Merekayasa pemecahan masalah kontekstual berbasis ${subject}. | Rekayasa Solusi Kontekstual & Proyek | **18 JP** | 6 Pertemuan | Unjuk Kerja & Portofolio • *Project-Based Learning* |`;
+
+      const finalSem1JP = sem1Materials.length > 0 ? sumSem1Jp : 54;
+      const finalSem1Meetings = sem1Materials.length > 0 ? sumSem1Meetings : 18;
+
+      let sumSem2Jp = 0;
+      let sumSem2Meetings = 0;
+      const sem2StartIdx = sem1Materials.length > 0 ? sem1Materials.length : 3;
+      const sem2Rows = sem2Materials.length > 0
+        ? sem2Materials.map((mat, idx) => {
+            const babName = mat.essentialMaterial || mat.tpName || `Bab ${sem2StartIdx + idx + 1}`;
+            const hours = Number(mat.allocatedHours) || 18;
+            const meetings = mat.meetingCount || Math.max(1, Math.round(hours / jpPerWk));
+            sumSem2Jp += hours;
+            sumSem2Meetings += meetings;
+            const code = mat.tpCode || `TP.${grade}.${sem2StartIdx + idx + 1}`;
+            const elem = mat.elementName || (idx % 2 === 0 ? 'Pemahaman Konseptual' : 'Aplikasi & Refleksi Kritis');
+            const assess = mat.assessmentStrategy || (idx % 2 === 0 ? 'Asesmen Formatif (Tes Tulis & Diskusi Terbimbing)' : 'Asesmen Sumatif Lingkup Materi & Gelar Karya');
+            const method = mat.deepLearningMethod || (idx % 2 === 0 ? 'Meaningful Inquiry & Diskusi Kasus' : 'Project-Based Learning & Joyful Creation');
+            return `| **${sem2StartIdx + idx + 1}** | **${code}** | *${elem}* — Peserta didik mampu mengintegrasikan konsep lanjutan dan menciptakan solusi aplikatif pada ${babName}. | **${babName}** | **${hours} JP** | ${meetings} Pertemuan | ${assess} • *${method}* |`;
+          }).join('\n')
+        : `| **4** | **TP.${grade}.4** | *Pemahaman Konseptual Lanjutan* — Mengevaluasi hubungan sistemik dan keteraturan konsep pada ${subject}. | Sistem Terpadu & Analisis Dinamis ${subject} | **18 JP** | 6 Pertemuan | Formatif Berkala & Refleksi • *Meaningful Case Study* |
+| **5** | **TP.${grade}.5** | *Keterampilan Proses* — Merancang eksperimen terpadu dan mengolah data hasil investigasi secara presisi. | Desain Eksperimen & Analisis Solutif | **18 JP** | 6 Pertemuan | Tes Praktik & Laporan Ilmiah • *Collaborative Inquiry* |
+| **6** | **TP.${grade}.6** | *Aplikasi & Kreasi* — Menghasilkan produk inovasi, memamerkan karya nyata, dan menyimpulkan solusi komprehensif. | Gelar Karya Inovasi & Refleksi Komprehensif | **18 JP** | 6 Pertemuan | Pameran Karya & Asesmen Sumatif • *Joyful Showcase* |`;
+
+      const finalSem2JP = sem2Materials.length > 0 ? sumSem2Jp : 54;
+      const finalSem2Meetings = sem2Materials.length > 0 ? sumSem2Meetings : 18;
+      const totalYearJP = finalSem1JP + finalSem2JP;
+      const totalTPCount = (sem1Materials.length > 0 ? sem1Materials.length : 3) + (sem2Materials.length > 0 ? sem2Materials.length : 3);
+
+      return `# ANALISIS CAPAIAN PEMBELAJARAN (CP) & DISTRIBUSI MATERI PER SEMESTER
 ## PENDEKATAN DEEP LEARNING (MINDFUL, MEANINGFUL, & JOYFUL LEARNING)
 
 ---
@@ -128,19 +177,21 @@ export function generateExpertCurriculumDocument(
 ### A. IDENTITAS PERANGKAT
 | Komponen | Keterangan |
 | :--- | :--- |
-| **Satuan Pendidikan** | SMA / SMK / MA / SMP / SD Terpadu |
+| **Satuan Pendidikan** | ${schoolName} |
 | **Mata Pelajaran** | **${subject}** |
 | **Fase / Kelas** | **${phase} / Kelas ${grade}** |
 | **Jenjang** | **${level}** |
-| **Semester** | **${semester}** |
+| **Semester** | **Semester Ganjil & Genap (1 Tahun Penuh)** |
+| **Alokasi Waktu Total** | **${totalYearJP} JP / Tahun (${jpPerWk} JP / Minggu)** |
 | **Tahun Pelajaran** | ${resolvedAcademicYear} |
-| **Penyusun / Guru** | ${teacherName} |
+| **Penyusun / Guru** | ${teacherName} (NIP. ${teacherNip}) |
+| **Kepala Sekolah** | ${headmasterName} (NIP. ${headmasterNip}) |
 
 ---
 
-### B. RASIONAL & CAPAIAN PEMBELAJARAN (CP)
-**Rumusan CP Resmi:**
-> *"Peserta didik mampu memahami hakikat keilmuan, menganalisis struktur dan konsep esensial ${subject}, menggunakan nalar kritis untuk memecahkan persoalan nyata, serta mengkomunikasikan ide gagasan solutif secara kolaboratif, kreatif, dan beretika."*
+### B. RASIONAL & CAPAIAN PEMBELAJARAN (CP) RESMI
+**Rumusan CP Resmi Fase ${phase}:**
+> *"Peserta didik mampu memahami hakikat keilmuan, menganalisis struktur dan konsep esensial ${subject}, menggunakan nalar kritis untuk memecahkan persoalan nyata, serta mengkomunikasikan ide gagasan solutif secara kolaboratif, kreatif, mandiri, dan beretika."*
 
 ---
 
@@ -163,7 +214,7 @@ export function generateExpertCurriculumDocument(
 |         [ INTEGRASI 3 PILAR DEEP LEARNING: MINDFUL ➔ MEANINGFUL ➔ JOYFUL ]                        |
 |                                  │                                                                |
 |                                  ▼                                                                |
-|         [ FORMULASI TUJUAN PEMBELAJARAN (TP) ABCD & DIMENSI KARAKTER 6C ]                         |
+|         [ FORMULASI TUJUAN PEMBELAJARAN (TP) ABCD & PEMETAAN DISTRIBUSI SEMESTER 1 & 2 ]          |
 +---------------------------------------------------------------------------------------------------+
 \`\`\`
 
@@ -178,7 +229,35 @@ export function generateExpertCurriculumDocument(
 
 ---
 
-### E. SKEMA INTEGRASI TIGA PILAR DEEP LEARNING
+### E. HASIL DISTRIBUSI CAPAIAN PEMBELAJARAN (CP) PER SEMESTER
+
+#### 1. Distribusi Capaian Pembelajaran & Materi Semester 1 (Ganjil)
+| No | Kode TP | Elemen CP & Rumusan Tujuan Pembelajaran (TP) | Ruang Lingkup Materi Pokok | Alokasi Waktu | Jml Pertemuan | Strategi Asesmen & Model Deep Learning |
+| :-: | :---: | :--- | :--- | :-: | :-: | :--- |
+${sem1Rows}
+| - | - | *Cadangan Alokasi Jam & Evaluasi Formatif/Sumatif Tengah & Akhir Semester* | Penguatan, ASTS & ASAS Ganjil | **6 JP** | 2 Pertemuan | Asesmen Sumatif & Umpan Balik |
+| **TOTAL** | | **Total Alokasi Beban KBM Semester 1 (Ganjil)** | | **${finalSem1JP + 6} JP** | **${finalSem1Meetings + 2} Pertemuan** | **100% Selaras Kaldik & Kurikulum** |
+
+#### 2. Distribusi Capaian Pembelajaran & Materi Semester 2 (Genap)
+| No | Kode TP | Elemen CP & Rumusan Tujuan Pembelajaran (TP) | Ruang Lingkup Materi Pokok | Alokasi Waktu | Jml Pertemuan | Strategi Asesmen & Model Deep Learning |
+| :-: | :---: | :--- | :--- | :-: | :-: | :--- |
+${sem2Rows}
+| - | - | *Cadangan Alokasi Jam & Evaluasi Formatif/Sumatif Akhir Tahun Pelajaran* | Penguatan, ASAS Genap & Kenaikan | **6 JP** | 2 Pertemuan | Asesmen Sumatif & Pameran Hasil |
+| **TOTAL** | | **Total Alokasi Beban KBM Semester 2 (Genap)** | | **${finalSem2JP + 6} JP** | **${finalSem2Meetings + 2} Pertemuan** | **100% Selaras Kaldik & Kurikulum** |
+
+#### 3. Rekapitulasi Matriks Distribusi Alokasi Waktu CP 1 Tahun Pelajaran
+| Komponen Distribusi Kurikulum | Semester 1 (Ganjil) | Semester 2 (Genap) | Total 1 Tahun Pelajaran | Keterangan & Rujukan |
+| :--- | :---: | :---: | :---: | :--- |
+| **Jumlah Tujuan Pembelajaran (TP)** | ${sem1Materials.length > 0 ? sem1Materials.length : 3} TP | ${sem2Materials.length > 0 ? sem2Materials.length : 3} TP | **${totalTPCount} TP** | Pemetaan Master CP & Modul |
+| **Alokasi Jam Tatap Muka Efektif** | ${finalSem1JP} JP | ${finalSem2JP} JP | **${finalSem1JP + finalSem2JP} JP** | KBM Berdiferensiasi & Deep Learning |
+| **Alokasi Jam Cadangan & Sumatif** | 6 JP | 6 JP | **12 JP** | ASTS, ASAS, & Evaluasi Mutu |
+| **Total Jam Pelajaran (JP)** | **${finalSem1JP + 6} JP** | **${finalSem2JP + 6} JP** | **${totalYearJP + 12} JP** | Beban Standar Kurikulum Merdeka |
+| **Beban Tatap Muka per Minggu** | ${jpPerWk} JP / Minggu | ${jpPerWk} JP / Minggu | **${jpPerWk} JP / Minggu** | Matriks Jadwal Mingguan Sekolah |
+| **Estimasi Pekan Efektif KBM (RBE)** | ~18 Pekan | ~18 Pekan | **~36 Pekan Efektif** | Sinkronisasi Kalender Pendidikan |
+
+---
+
+### F. SKEMA INTEGRASI TIGA PILAR DEEP LEARNING
 \`\`\`
 +---------------------------------------------------------------------------------------------------+
 |                     SKEMA TIGA PILAR PEDAGOGIS DEEP LEARNING DALAM KBM                            |
@@ -195,19 +274,21 @@ export function generateExpertCurriculumDocument(
 
 ---
 
-### F. PEMETAAN DIMENSI PROFIL PELAJAR PANCASILA & KARAKTER 6C
+### G. PEMETAAN DIMENSI PROFIL PELAJAR PANCASILA & KARAKTER 6C
 * **Beriman, Bertakwa kepada Tuhan YME, dan Berakhlak Mulia:** Mensyukuri keteraturan alam semesta dan ilmu pengetahuan.
 * **Bernalar Kritis:** Menganalisis informasi, memvalidasi bukti, dan menarik kesimpulan logis.
 * **Kreatif:** Mengembangkan alternatif solusi inovatif terhadap tantangan masalah kontekstual.
 * **Bergotong Royong:** Berkolaborasi efektif dalam kerja kelompok dan saling menghargai pendapat.
+* **Karakter 6C Terpadu:** *Character* (Integritas), *Citizenship* (Kepedulian), *Collaboration* (Kerjasama), *Communication* (Artikulasi Gagasan), *Creativity* (Inovasi), *Critical Thinking* (Solusi Masalah).
 
 ---
 
-### G. STRATEGI PEMBELAJARAN BERDIFERENSIASI
-* **Diferensiasi Konten:** Menyediakan bahan ajar multimodal (teks narasi, infografis visual, video animasi, dan benda konkret).
+### H. STRATEGI PEMBELAJARAN BERDIFERENSIASI
+* **Diferensiasi Konten:** Menyediakan bahan ajar multimodal (teks narasi, infografis visual, video animasi, dan studi kasus riil).
 * **Diferensiasi Proses:** Bimbingan berjenjang (*scaffolding*) bagi kelompok yang membutuhkan bimbingan intensif dan tantangan mandiri untuk kelompok mahir.
-* **Diferensiasi Produk:** Kebebasan memilih bentuk unjuk kerja tugas (laporan tulisan, poster infografis, rekaman podcast audio, atau video presentasi singkat).
+* **Diferensiasi Produk:** Kebebasan memilih bentuk unjuk kerja tugas (laporan tulisan, poster infografis, rekaman podcast audio, atau demonstrasi presentasi video).
 `;
+    }
 
     case 'tp': {
       const tpRows = activeMaterials.length > 0

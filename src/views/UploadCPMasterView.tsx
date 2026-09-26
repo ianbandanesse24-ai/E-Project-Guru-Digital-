@@ -901,7 +901,8 @@ ${sem2.map((m, i) => `| ${i + 1} | ${m.tpCode || `TP.${preset.grade}.2.${i+1}`} 
             <span>Katalog Master CP ({SUBJECT_MATERIAL_PRESETS.length} Mapel)</span>
           </button>
 
-          {currentUser.role === 'admin' && (
+          {/* Admin-Only Upload & Analysis Tab */}
+          {currentUser.role === 'admin' ? (
             <button
               onClick={() => setActiveTab('upload_master')}
               className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
@@ -911,27 +912,25 @@ ${sem2.map((m, i) => `| ${i + 1} | ${m.tpCode || `TP.${preset.grade}.2.${i+1}`} 
               }`}
             >
               <UploadCloud className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Upload CP Master (Admin)</span>
+              <span>Upload & Analisis CP Master (Admin)</span>
               <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-indigo-500/30 text-indigo-200">
-                AI Pemilah
+                Admin Only
               </span>
             </button>
+          ) : (
+            <button
+              onClick={() => setActiveTab('upload_master')}
+              className={`px-3 py-2 rounded-xl font-semibold transition flex items-center gap-1.5 opacity-60 hover:opacity-100 ${
+                activeTab === 'upload_master'
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Khusus Administrator Sekolah"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span>Upload Master (Khusus Admin)</span>
+            </button>
           )}
-
-          <button
-            onClick={() => setActiveTab('upload_guru')}
-            className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
-              activeTab === 'upload_guru'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                : 'text-emerald-300 hover:text-white bg-emerald-950/40 hover:bg-emerald-900/60'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Upload & Sinkron CP Saya (Guru)</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-500/30 text-emerald-200">
-              Auto-Sync
-            </span>
-          </button>
 
           <button
             onClick={() => setActiveTab('all')}
@@ -940,7 +939,7 @@ ${sem2.map((m, i) => `| ${i + 1} | ${m.tpCode || `TP.${preset.grade}.2.${i+1}`} 
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Hasil Analisis Mapel Aktif</span>
+            <span>Hasil Analisis CP Aktif</span>
           </button>
           <button
             onClick={() => setActiveTab('elements')}
@@ -1005,107 +1004,80 @@ ${sem2.map((m, i) => `| ${i + 1} | ${m.tpCode || `TP.${preset.grade}.2.${i+1}`} 
       </div>
 
       {/* ========================================================================= */}
-      {/* TAB: UPLOAD CP MASTER (ADMIN) - ANALISIS & PEMILAHAN JENJANG/FASE/MAPEL */}
+      {/* TAB: UPLOAD CP MASTER (ADMIN ONLY) - ANALISIS & AUTO-SYNC TOTAL */}
       {/* ========================================================================= */}
       {activeTab === 'upload_master' && (
         <div className="space-y-6">
-          <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 rounded-3xl border border-indigo-500/30 shadow-2xl space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/30">
-                  <UploadCloud className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-black border border-indigo-500/40 mb-1">
-                    <ShieldCheck className="w-3 h-3 text-indigo-400" />
-                    <span>PANEL RESMI ADMINISTRATOR SEKOLAH</span>
-                  </div>
-                  <h2 className="text-lg font-black text-white">
-                    Upload & Analisis CP Master (Pemilahan Jenjang, Fase & Mapel)
-                  </h2>
-                </div>
+          {currentUser.role !== 'admin' ? (
+            <div className="p-8 bg-slate-900 rounded-3xl border border-amber-500/30 text-center space-y-4 shadow-2xl">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mx-auto text-amber-400">
+                <ShieldCheck className="w-8 h-8" />
               </div>
-              <button
-                onClick={() => setActiveTab('catalog')}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 shrink-0 self-start sm:self-center"
-              >
-                <Grid className="w-3.5 h-3.5 text-sky-400" />
-                <span>Buka Katalog Master ({SUBJECT_MATERIAL_PRESETS.length} Mapel)</span>
-              </button>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed max-w-4xl">
-              Administrator dapat mengunggah dokumen regulasi Capaian Pembelajaran (CP) Kemdikbudristek (BSKAP 032/H/KR/2024 atau dokumen sekolah). Sistem kecerdasan buatan (AI) akan secara otomatis membedah, memilah, dan menyusun CP berdasarkan <strong>Jenjang (SD, SMP, SMA, SMK)</strong>, <strong>Fase (A s/d F)</strong>, dan <strong>Mata Pelajaran</strong> lengkap dengan elemen capaian, materi pokok, dan distribusi semester ganjil-genap yang siap diunduh oleh guru.
-            </p>
-          </div>
-
-          <CPUploaderAndAnalyzer
-            teacherName={schoolProfile.teacherName || currentUser.name}
-            schoolName={schoolProfile.schoolName}
-            onAnalysisComplete={(masterData) => {
-              setMasterCP(masterData);
-              setActiveTab('all');
-            }}
-            onNavigate={onNavigate}
-            customTitle="Form Upload & Ekstraksi Dokumen CP Master Resmi BSKAP"
-            customDescription="Unggah berkas CP (PDF, Word, Excel, Teks) untuk dianalisis dan dipilah ke repositori sekolah"
-          />
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB: UPLOAD & SINKRON CP GURU MANDIRI - SINKRONISASI TOTAL KE 9 PERANGKAT */}
-      {/* ========================================================================= */}
-      {activeTab === 'upload_guru' && (
-        <div className="space-y-6">
-          <div className="p-6 bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 rounded-3xl border border-emerald-500/30 shadow-2xl space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-lg shadow-emerald-600/30">
-                  <Sparkles className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black border border-emerald-500/40 mb-1">
-                    <Zap className="w-3 h-3 text-amber-300" />
-                    <span>PORTAL MANDIRI GURU MATA PELAJARAN</span>
-                  </div>
-                  <h2 className="text-lg font-black text-white">
-                    Upload & Sinkronkan CP Milik Guru Mandiri
-                  </h2>
-                </div>
+              <div className="space-y-2 max-w-xl mx-auto">
+                <h3 className="text-lg font-bold text-white">
+                  Fitur Khusus Administrator Sekolah
+                </h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Upload dan analisis berkas dokumen CP Master baru (BSKAP / SK Sekolah) hanya dapat dilakukan oleh <strong>Administrator Sekolah</strong> demi standardisasi kurikulum terpusat.
+                </p>
+                <p className="text-xs text-slate-400">
+                  Sebagai Guru Mata Pelajaran, Anda dapat langsung memilih, mengadopsi, dan menyinkronkan Capaian Pembelajaran resmi yang telah disiapkan melalui <strong>Katalog Master CP</strong>.
+                </p>
               </div>
-              <button
-                onClick={() => setActiveTab('catalog')}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 shrink-0 self-start sm:self-center"
-              >
-                <Download className="w-3.5 h-3.5 text-amber-400" />
-                <span>Pilih / Download dari Katalog Sekolah</span>
-              </button>
+              <div className="pt-2 flex justify-center gap-3">
+                <button
+                  onClick={() => setActiveTab('catalog')}
+                  className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-lg shadow-sky-600/30 transition flex items-center gap-2"
+                >
+                  <Grid className="w-4 h-4" />
+                  <span>Buka Katalog Master CP ({SUBJECT_MATERIAL_PRESETS.length} Mapel)</span>
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed max-w-4xl">
-              Guru dapat mengunggah berkas CP milik sendiri (PDF, Word, Excel, Teks, Scan) <strong>ATAU</strong> mengunggah berkas <strong>JSON Standar</strong> yang telah diunduh dari tab Katalog Sekolah. Sistem akan mengekstrak elemen, merumuskan Tujuan Pembelajaran (TP), dan <strong>secara otomatis menyinkronkan seluruh 9 perangkat ajar</strong> (Analisis CP, TP, ATP, PROTA, PROSEM, KKTP, RPM / Modul Ajar Deep Learning, LKPD, Rubrik Asesmen & Bundel Lengkap).
-            </p>
-          </div>
+          ) : (
+            <>
+              <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 rounded-3xl border border-indigo-500/30 shadow-2xl space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/30">
+                      <UploadCloud className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-black border border-indigo-500/40 mb-1">
+                        <ShieldCheck className="w-3 h-3 text-indigo-400" />
+                        <span>PANEL RESMI ADMINISTRATOR SEKOLAH</span>
+                      </div>
+                      <h2 className="text-lg font-black text-white">
+                        Upload & Analisis CP Master (Auto-Sync ke Seluruh Perangkat Ajar)
+                      </h2>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('catalog')}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+                  >
+                    <Grid className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Buka Katalog Master ({SUBJECT_MATERIAL_PRESETS.length} Mapel)</span>
+                  </button>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed max-w-4xl">
+                  Administrator dapat mengunggah dokumen regulasi Capaian Pembelajaran (CP) Kemdikbudristek (BSKAP 032/H/KR/2024 atau SK Sekolah). AI akan mengekstrak elemen, memilah kompetensi Bloom HOTS, merumuskan TP, membagi materi Semester 1 & 2, serta <strong>secara otomatis menyinkronkan seluruh 9 perangkat kurikulum</strong> (Analisis CP, TP, ATP, PROTA, PROSEM, KKTP, RPM Deep Learning, LKPD, dan Rubrik Penilaian).
+                </p>
+              </div>
 
-          <CPUploaderAndAnalyzer
-            isTeacherMode={true}
-            teacherName={schoolProfile.teacherName || currentUser.name}
-            schoolName={schoolProfile.schoolName}
-            onAnalysisComplete={(masterData) => {
-              setMasterCP(masterData);
-              setAdoptedSuccessModal({
-                isOpen: true,
-                subject: masterData.subject,
-                level: masterData.level,
-                phase: masterData.phase,
-                grade: masterData.grade,
-                totalTP: (masterData.materialsSem1?.length || 0) + (masterData.materialsSem2?.length || 0),
-                hours: masterData.totalHoursPerYear || 108,
-              });
-            }}
-            onNavigate={onNavigate}
-            customTitle="Upload Berkas CP Guru & Sinkronkan ke Semua Perangkat Ajar"
-            customDescription="Pilih berkas CP Anda (PDF / Word / Excel / JSON Standar) untuk langsung menghasilkan 9 perangkat ajar"
-          />
+              <CPUploaderAndAnalyzer
+                teacherName={schoolProfile.teacherName || currentUser.name}
+                schoolName={schoolProfile.schoolName}
+                onAnalysisComplete={(masterData) => {
+                  setMasterCP(masterData);
+                  setActiveTab('all');
+                }}
+                onNavigate={onNavigate}
+                customTitle="Form Upload & Ekstraksi Dokumen CP Master Resmi BSKAP"
+                customDescription="Unggah berkas CP (PDF, Word, Excel, Teks, Scan) untuk dianalisis dan disinkronkan otomatis ke seluruh kurikulum & perangkat ajar"
+              />
+            </>
+          )}
         </div>
       )}
 

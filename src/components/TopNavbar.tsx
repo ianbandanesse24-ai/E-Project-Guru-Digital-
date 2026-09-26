@@ -83,7 +83,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
       items: [
         { id: 'profil_guru_mapel', label: 'Profil Guru Mata Pelajaran', badge: 'Acuan' },
         { id: 'parameter_kurikulum', label: 'Parameter Kurikulum, Beban Belajar & Kaldik', badge: 'RBE' },
-        { id: 'ai_analisis_cp', label: '1. Analisis CP Terbaru' },
+        { id: 'ai_analisis_cp', label: '1. Analisis & Distribusi CP' },
         { id: 'ai_tp', label: '2. Tujuan Pembelajaran (TP)' },
         { id: 'ai_atp', label: '3. Alur Tujuan Pembelajaran (ATP)' },
         { id: 'ai_prota', label: '4. Program Tahunan (PROTA)' },

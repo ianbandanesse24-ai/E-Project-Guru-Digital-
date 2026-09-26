@@ -31,6 +31,7 @@ import {
   Palette,
   FileUp,
   Sliders,
+  BookOpen,
 } from 'lucide-react';
 import { UserAccount, AppTheme } from '../types';
 import { useOfflineSync } from '../lib/offlineManager';
@@ -140,16 +141,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'upload_cp_master',
-      label: 'Katalog & Upload CP Guru',
+      label: 'Katalog & Upload CP Master',
       icon: BookOpen,
-      badge: 'Download & Sync',
-      desc: 'Download Master & Upload Mandiri',
+      badge: 'Resmi BSKAP',
+      desc: 'Katalog Resmi & Upload CP Master',
     },
     {
       id: 'ai_analisis_cp',
-      label: '1. Analisis CP Terbaru',
+      label: '1. Analisis & Distribusi CP',
       icon: FileSearch,
-      desc: 'Pemetaan Elemen CP & Dimensi',
+      desc: 'Pemetaan Elemen CP & Distribusi Sem 1 & 2',
     },
     {
       id: 'ai_tp',

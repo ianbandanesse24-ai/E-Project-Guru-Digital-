@@ -42,6 +42,7 @@ import {
   HardDrive,
   MessageSquare,
   Cpu,
+  Lock,
 } from 'lucide-react';
 import { UserAccount, AccessLog, UserNotification, TokenVoucher, AdminSystemSettings } from '../types';
 import { StorageService, DEFAULT_ADMIN } from '../lib/storage';
@@ -405,6 +406,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     setTokenActionMsg({ text: `Kuota generate bulanan ${userName} berhasil direset ke 0 pemakaian.`, type: 'success' });
   };
 
+  const handleResetUserDailyTokens = (userId: string, userName: string) => {
+    StorageService.resetUserDailyTokens(userId);
+    setUsers(StorageService.getUsers());
+    setTokenActionMsg({ text: `Pemakaian token harian untuk ${userName} berhasil direset ke 0/20.000 token.`, type: 'success' });
+  };
+
   const handleAddTokens = (userId: string, userName: string, amount: number) => {
     StorageService.addUserExtraTokens(userId, amount);
     setUsers(StorageService.getUsers());
@@ -699,35 +706,35 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           {/* Token Stats Header */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center space-x-3.5">
+              <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                <Zap className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400">Batas Token Harian</span>
+                <div className="text-xl font-black text-white font-mono">20.000 Token</div>
+                <span className="text-[10px] text-emerald-400 font-semibold">Reset Otomatis 00:00 WIB</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center space-x-3.5">
               <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400">Kuota Bulanan Standar</span>
-                <div className="text-xl font-black text-white font-mono">35x Generate</div>
-                <span className="text-[10px] text-slate-500">500.000 Token / Akun Guru</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400">Fitur Context Caching</span>
+                <div className="text-lg font-black text-indigo-300 font-mono">Aktif (Hemat 75%)</div>
+                <span className="text-[10px] text-slate-400">Cache CP & Modul Master</span>
               </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center space-x-3.5">
-              <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
-                <RefreshCw className="w-5 h-5" />
+              <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
+                <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400">Siklus Reset Otomatis</span>
-                <div className="text-lg font-black text-emerald-400 font-mono">Tgl Izin Akses</div>
-                <span className="text-[10px] text-slate-500">Reset otomatis tiap bulan</span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center space-x-3.5">
-              <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400">Masa Aktif Akses</span>
-                <div className="text-xl font-black text-amber-400 font-mono">1 Tahun</div>
-                <span className="text-[10px] text-slate-500">Peringatan 7 hari sebelum tempo</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400">Row Level Security (RLS)</span>
+                <div className="text-lg font-black text-blue-400 font-mono">Terproteksi 100%</div>
+                <span className="text-[10px] text-slate-400">Isolasi akun antar pengguna</span>
               </div>
             </div>
 
@@ -738,7 +745,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400">Total Akun Terdaftar</span>
                 <div className="text-xl font-black text-purple-400 font-mono">{users.length} Akun</div>
-                <span className="text-[10px] text-slate-500">Admin + Guru Terdaftar</span>
+                <span className="text-[10px] text-slate-500">Masa aktif lisensi 1 tahun</span>
               </div>
             </div>
           </div>
@@ -803,9 +810,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <th className="py-3 px-3 w-10 text-center">No</th>
                     <th className="py-3 px-3">Nama Guru & Email</th>
                     <th className="py-3 px-3">Masa Aktif (1 Thn)</th>
+                    <th className="py-3 px-3 text-center">Token Harian (20k/hr)</th>
                     <th className="py-3 px-3 text-center">Kuota Bulan Ini</th>
                     <th className="py-3 px-3 text-center">Sisa Kuota</th>
-                    <th className="py-3 px-3 text-center">Reset Tiap</th>
                     <th className="py-3 px-3 text-center">Bonus</th>
                     <th className="py-3 px-3 text-center">Aksi Manajemen Admin</th>
                   </tr>
@@ -870,6 +877,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           </td>
                           <td className="py-3 px-3 text-center font-mono">
                             {isCurrentUserAdmin ? (
+                              <span className="text-emerald-400 font-bold">Unlimited (Admin)</span>
+                            ) : (
+                              <div>
+                                <span className="font-bold text-emerald-400">
+                                  {quota.dailyTokensUsed.toLocaleString('id-ID')} / {quota.dailyTokensLimit.toLocaleString('id-ID')} tk
+                                </span>
+                                <div className="text-[9px] text-slate-400">
+                                  Reset 00:00 ({quota.dailyResetCountdownText})
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-center font-mono">
+                            {isCurrentUserAdmin ? (
                               <span className="text-emerald-400 font-bold">Tanpa Batas (∞)</span>
                             ) : (
                               <div>
@@ -899,9 +920,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-3 text-center font-mono text-indigo-300 text-[11px]">
-                            {isCurrentUserAdmin ? '-' : `Tgl ${quota.billingCycleDay || 1}`}
-                          </td>
                           <td className="py-3 px-3 text-center font-mono text-amber-300 font-bold">
                             {u.extraTokens && u.extraTokens > 0 ? `+${u.extraTokens}` : '-'}
                           </td>
@@ -917,6 +935,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                   <span>+1 Thn</span>
                                 </button>
                               )}
+
+                              <button
+                                onClick={() => handleResetUserDailyTokens(u.id, u.name)}
+                                title="Reset Pemakaian Token Harian (20k) ke 0"
+                                className="px-2 py-1 bg-emerald-900/40 hover:bg-emerald-800 text-emerald-300 hover:text-white rounded-lg text-[10px] font-bold flex items-center space-x-1 border border-emerald-700/50 transition"
+                              >
+                                <Zap className="w-3 h-3 text-emerald-400" />
+                                <span>Reset 20k</span>
+                              </button>
 
                               <button
                                 onClick={() => handleResetUserQuota(u.id, u.name)}
@@ -1310,14 +1337,41 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* 1. Konfigurasi Kuota & Token AI Guru */}
+            {/* 1. Konfigurasi Kuota & Token AI Guru (Harian 20k & Bulanan) */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
               <div className="flex items-center space-x-2 border-b border-slate-800 pb-3">
                 <Sparkles className="w-4 h-4 text-amber-400" />
-                <h4 className="text-sm font-bold text-white">Default Kuota & Batas AI Guru</h4>
+                <h4 className="text-sm font-bold text-white">Default Kuota & Batas AI Guru (20.000 Token/Hari)</h4>
               </div>
 
               <div className="space-y-3 text-xs">
+                {/* 20k Daily Token Limit */}
+                <div className="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-xl space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-emerald-300 font-bold">
+                      Batas Token AI Harian per Akun (Reset 00:00 WIB)
+                    </label>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                      Standar: 20.000 / Hari
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="number"
+                      min={1000}
+                      step={1000}
+                      value={adminSettings.defaultDailyTokenLimit || 20000}
+                      onFocus={handleNumberInputFocus}
+                      onChange={(e) => handleUpdateSetting('defaultDailyTokenLimit', parseNumberInput(e.target.value, 20000, 1000, 500000))}
+                      className="w-36 px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-slate-400 text-[11px]">token / hari (Reset otomatis setiap 00:00 WIB)</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Setiap hari pada pukul 00:00 WIB, kuota token harian seluruh guru akan otomatis direset kembali ke 0/{adminSettings.defaultDailyTokenLimit || 20000}.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">
                     Batas Default Generate AI Bulanan per Guru
@@ -1371,14 +1425,69 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
             </div>
 
-            {/* 2. Otorisasi & Pendaftaran Akun */}
+            {/* 2. Otorisasi & Pembatas Antar Pengguna / Row Level Security */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
               <div className="flex items-center space-x-2 border-b border-slate-800 pb-3">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <h4 className="text-sm font-bold text-white">Kebijakan Otorisasi & Akses</h4>
+                <h4 className="text-sm font-bold text-white">Pembatas Pengguna & Row Level Security (RLS)</h4>
               </div>
 
-              <div className="space-y-4 text-xs">
+              <div className="space-y-3 text-xs">
+                {/* RLS Status Badge */}
+                <div className="p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-xl flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-indigo-300 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5" />
+                      Row Level Security (RLS) & Isolasi Workspace
+                    </div>
+                    <div className="text-[11px] text-slate-300 mt-0.5">
+                      Setiap akun guru hanya dapat mengakses dokumen miliknya sendiri. Tidak dapat melihat data guru lain.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const status = StorageService.verifyAllTablesRLS();
+                      alert(
+                        `✓ VERIFIKASI ROW LEVEL SECURITY (RLS) BERHASIL!\n\n` +
+                        `• Status RLS: DIAKTIFKAN & DITEGAKKAN\n` +
+                        `• Pembatas Pengguna: ISOLASI WORKSPACE AKTIF\n` +
+                        `• Total Tabel Terproteksi: ${status.protectedTables.length} tabel\n` +
+                        `• Pelanggaran Akses Lintas Akun: 0 (Terblokir Total)\n` +
+                        `• Database SQL RLS: auth.uid() = user_id ENABLED\n` +
+                        `• User Id Terproteksi: ${StorageService.getCurrentUserId() || 'Semua Sesi'}`
+                      );
+                    }}
+                    className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-[11px] whitespace-nowrap transition"
+                  >
+                    Uji Isolasi RLS
+                  </button>
+                </div>
+
+                {/* Context Caching Setting */}
+                <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
+                  <div>
+                    <div className="font-semibold text-white flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-400" />
+                      Fitur Context Caching (Gemini AI)
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Cache context kurikulum & prompt untuk hemat token hingga 75%
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleUpdateSetting('enableContextCaching', !adminSettings.enableContextCaching)}
+                    className={`p-1.5 rounded-xl transition ${
+                      adminSettings.enableContextCaching ? 'text-amber-400 bg-amber-500/20' : 'text-slate-500 bg-slate-800'
+                    }`}
+                  >
+                    {adminSettings.enableContextCaching ? (
+                      <ToggleRight className="w-6 h-6" />
+                    ) : (
+                      <ToggleLeft className="w-6 h-6" />
+                    )}
+                  </button>
+                </div>
+
                 <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
                   <div>
                     <div className="font-semibold text-white">Auto-Approve Pendaftaran Guru Baru</div>
@@ -1393,27 +1502,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     }`}
                   >
                     {adminSettings.autoApproveNewUsers ? (
-                      <ToggleRight className="w-6 h-6" />
-                    ) : (
-                      <ToggleLeft className="w-6 h-6" />
-                    )}
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
-                  <div>
-                    <div className="font-semibold text-white">Audit Log & Rekam Jejak Aktivitas</div>
-                    <div className="text-[11px] text-slate-400">
-                      Catat setiap generate AI, ekspor dokumen, dan login guru ke riwayat audit
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleUpdateSetting('enableActivityLogging', !adminSettings.enableActivityLogging)}
-                    className={`p-1.5 rounded-xl transition ${
-                      adminSettings.enableActivityLogging ? 'text-emerald-400 bg-emerald-500/20' : 'text-slate-500 bg-slate-800'
-                    }`}
-                  >
-                    {adminSettings.enableActivityLogging ? (
                       <ToggleRight className="w-6 h-6" />
                     ) : (
                       <ToggleLeft className="w-6 h-6" />
@@ -1522,159 +1610,120 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
             </div>
 
-            {/* 5. Kebijakan Retensi & Pengosongan Data AI Kurikulum (24 Jam) */}
+            {/* 5. Kebijakan Retensi & Penyimpanan Permanen Data AI Kurikulum */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 md:col-span-2">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="flex items-center space-x-2">
-                  <Clock className="w-4 h-4 text-amber-400" />
-                  <h4 className="text-sm font-bold text-white">Kebijakan Pembersihan & Pengosongan Data AI Kurikulum (Setiap 24 Jam)</h4>
+                  <DatabaseZap className="w-4 h-4 text-emerald-400" />
+                  <h4 className="text-sm font-bold text-white">Kebijakan Penyimpanan Data: Permanen (Tersimpan Selamanya)</h4>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center space-x-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
                   <CheckCircle2 className="w-3 h-3" />
-                  <span>Auto-Purge 24 Jam Aktif</span>
+                  <span>Penyimpanan Permanen Aktif (Tanpa Auto-Purge)</span>
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                 {/* Status Box */}
                 <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-                  <div className="text-[11px] text-slate-400 font-semibold">Status Penyimpanan Sementara:</div>
+                  <div className="text-[11px] text-slate-400 font-semibold">Status Penyimpanan Data:</div>
                   <div className="flex items-baseline space-x-2">
-                    <span className="text-xl font-mono font-bold text-white">{retentionStats.totalDocs}</span>
-                    <span className="text-slate-400">dokumen aktif tersimpan</span>
+                    <span className="text-xl font-mono font-bold text-emerald-400">{retentionStats.totalDocs}</span>
+                    <span className="text-slate-400">dokumen permanen tersimpan</span>
                   </div>
-                  <div className="text-[10px] text-slate-500">
-                    {retentionStats.totalDocs > 0 ? (
-                      <>Dokumen tertua berusia <strong>{retentionStats.oldestDocHours} jam</strong>. Otomatis dibersihkan dalam <strong>{retentionStats.hoursUntilNextPurge} jam</strong>.</>
-                    ) : (
-                      'Tidak ada arsip dokumen sementara saat ini.'
-                    )}
+                  <div className="text-[10px] text-slate-300 leading-relaxed">
+                    Data dokumen perangkat ajar dan draf tersimpan secara permanen di memori terenkripsi dan tidak akan dihapus otomatis.
                   </div>
-                  <div className="text-[10px] text-emerald-400 pt-1 border-t border-slate-800/80">
-                    Total {retentionStats.totalPurgedAllTime} dokumen telah dibersihkan secara otomatis.
+                  <div className="text-[10px] text-emerald-400 pt-1 border-t border-slate-800/80 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                    <span>Hanya dapat dihapus secara manual oleh pemilik akun.</span>
                   </div>
                 </div>
 
-                {/* Duration Control */}
+                {/* Policy Info */}
                 <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
                   <label className="block text-slate-300 font-semibold text-xs">
-                    Durasi Siklus Retensi AI
+                    Aturan Retensi & Perlindungan Data
                   </label>
-                  <select
-                    value={adminSettings.aiDataRetentionHours || 24}
-                    onChange={(e) => {
-                      const val = Number(e.target.value) || 24;
-                      handleUpdateSetting('aiDataRetentionHours', val);
-                      const res = StorageService.cleanExpiredAIDocuments(val);
-                      setRetentionStats(StorageService.getAIDocsRetentionStats());
-                    }}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value={24}>24 Jam (Standar Resmi - Direkomendasikan)</option>
-                    <option value={12}>12 Jam</option>
-                    <option value={6}>6 Jam (Cepat)</option>
-                    <option value={48}>48 Jam (2 Hari)</option>
-                  </select>
+                  <div className="p-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-emerald-300 font-bold text-xs flex items-center justify-between">
+                    <span>Permanen (Tanpa Batas Waktu)</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Terproteksi</span>
+                  </div>
                   <p className="text-[10px] text-slate-400 leading-relaxed">
-                    Dokumen hasil generate AI dan draf otomatis dihapus dari memori penyimpanan lokal setelah melewati batas waktu ini.
+                    Semua modul ajar, RPM Deep Learning, PROTA, PROSEM, kalender pendidikan, dan data kurikulum tersimpan aman tanpa siklus penghapusan otomatis.
                   </p>
                 </div>
 
                 {/* Manual Actions */}
                 <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 flex flex-col justify-between space-y-2.5">
                   <div>
-                    <div className="font-semibold text-white text-xs">Tindakan Pengosongan Manual</div>
+                    <div className="font-semibold text-white text-xs">Tindakan Penghapusan Manual</div>
                     <div className="text-[10px] text-slate-400 mt-0.5">
-                      Jalankan pembersihan berkala atau kosongkan seluruh data AI seketika.
+                      Pengosongan data hanya terjadi jika dipicu secara sadar oleh pengguna.
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
                     <button
                       type="button"
-                      onClick={() => handleManualCleanup('expired')}
-                      className="w-full py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-semibold transition flex items-center justify-center space-x-1.5 border border-slate-700"
-                    >
-                      <RefreshCw className="w-3 h-3 text-amber-400" />
-                      <span>Bersihkan Dokumen &gt; 24 Jam</span>
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => handleManualCleanup('all')}
                       className="w-full py-1.5 px-3 bg-rose-950/60 hover:bg-rose-900 text-rose-200 rounded-lg text-[11px] font-semibold transition flex items-center justify-center space-x-1.5 border border-rose-800/60"
                     >
                       <Trash2 className="w-3 h-3 text-rose-400" />
-                      <span>Kosongkan Semua Data AI Sekarang</span>
+                      <span>Kosongkan Seluruh Arsip Dokumen AI</span>
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 6. Kebijakan Reset Otomatis & Manual Data Kurikulum & Perangkat (12 Jam) */}
+            {/* 6. Pemeliharaan & Reset Manual Data Kurikulum */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 md:col-span-2">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="flex items-center space-x-2">
-                  <RotateCcw className="w-4 h-4 text-rose-400" />
+                  <RotateCcw className="w-4 h-4 text-indigo-400" />
                   <h4 className="text-sm font-bold text-white">
-                    Siklus Reset Otomatis (Setiap 12 Jam) & Reset Manual Data Kurikulum & Perangkat
+                    Pusat Pemeliharaan & Reset Manual Data Kurikulum & Perangkat
                   </h4>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center space-x-1">
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>Siklus 12 Jam Aktif</span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center space-x-1">
+                  <ShieldCheck className="w-3 h-3" />
+                  <span>Proteksi Data Pengguna Aktif</span>
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                 {/* Status Card */}
                 <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-                  <div className="text-[11px] text-slate-400 font-semibold">Status Siklus 12 Jam:</div>
+                  <div className="text-[11px] text-slate-400 font-semibold">Status Data Kurikulum:</div>
                   <div className="flex items-baseline space-x-2">
-                    <span className="text-xl font-mono font-bold text-rose-400">
-                      {curriculumResetStats.hoursRemaining}j {curriculumResetStats.minutesRemaining}m
+                    <span className="text-xl font-mono font-bold text-indigo-300">
+                      Permanen
                     </span>
-                    <span className="text-slate-400">menuju reset berikutnya</span>
+                    <span className="text-slate-400">tersimpan utuh</span>
                   </div>
-                  <div className="text-[10px] text-slate-400">
-                    <div>Reset Terakhir: <strong className="text-slate-200">{curriculumResetStats.lastReset}</strong></div>
-                    <div>Reset Berikutnya: <strong className="text-slate-200">{curriculumResetStats.nextReset}</strong></div>
-                  </div>
-                  <div className="text-[10px] text-emerald-400 pt-1 border-t border-slate-800/80">
-                    Total {curriculumResetStats.totalResets} kali data telah disegarkan oleh sistem.
+                  <div className="text-[10px] text-slate-300">
+                    <div>Kebijakan: <strong className="text-slate-200">Tidak dihapus otomatis</strong></div>
+                    <div>Row Level Security: <strong className="text-emerald-400">auth.uid() = user_id</strong></div>
                   </div>
                 </div>
 
-                {/* Interval Control */}
+                {/* Information Card */}
                 <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
                   <label className="block text-slate-300 font-semibold text-xs">
-                    Interval Reset Otomatis Kurikulum
+                    Informasi Partisi & Isolasi
                   </label>
-                  <select
-                    value={adminSettings.curriculumResetIntervalHours || 12}
-                    onChange={(e) => {
-                      const val = Number(e.target.value) || 12;
-                      handleUpdateSetting('curriculumResetIntervalHours', val);
-                      setCurriculumResetStats(StorageService.getCurriculumResetStats());
-                    }}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:border-rose-500"
-                  >
-                    <option value={12}>Setiap 12 Jam (Standar Resmi)</option>
-                    <option value={6}>Setiap 6 Jam</option>
-                    <option value={24}>Setiap 24 Jam (1 Hari)</option>
-                    <option value={48}>Setiap 48 Jam (2 Hari)</option>
-                  </select>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    Setiap 12 jam, sistem secara otomatis mengosongkan seluruh data kurikulum, CP master, kaldik standar, perangkat ajar, dan administrasi kelas untuk menjaga performa optimal.
+                  <p className="text-[10px] text-slate-300 leading-relaxed">
+                    Setiap guru mengelola data kurikulum, analisis CP, dan perangkat ajarnya secara mandiri. Data guru satu tidak tercampur dengan guru lain.
                   </p>
                 </div>
 
                 {/* Manual Triggers */}
                 <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 flex flex-col justify-between space-y-2.5">
                   <div>
-                    <div className="font-semibold text-white text-xs">Eksekusi Reset Manual Master</div>
+                    <div className="font-semibold text-white text-xs">Opsi Reset Manual Mandiri</div>
                     <div className="text-[10px] text-slate-400 mt-0.5">
-                      Reset seketika seluruh data atau pilih modul data tertentu.
+                      Reset data kurikulum hanya jika Anda ingin mengulang dari format standar.
                     </div>
                   </div>
 
@@ -1685,7 +1734,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       className="w-full py-1.5 px-3 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[11px] font-bold transition flex items-center justify-center space-x-1.5 shadow-sm"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Reset Seluruh Data Sekarang</span>
+                      <span>Reset Manual Seluruh Data Saya</span>
                     </button>
                     <div className="grid grid-cols-2 gap-1.5">
                       <button

@@ -1378,8 +1378,9 @@ export class ExportService {
       docType?: string;
       [key: string]: any;
     },
-    fileName: string
+    fileName?: string
   ): void {
+    const safeFileName = fileName || title || 'Dokumen';
     const cleaned = ExportService.cleanDocumentMarkdown(bodyHtmlOrMarkdown);
     // Convert Markdown to Word-optimized HTML (unless full HTML document is passed)
     const isPureHtml = cleaned.trim().startsWith('<!DOCTYPE') || cleaned.trim().startsWith('<html');
@@ -1690,7 +1691,7 @@ export class ExportService {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${fileName}.doc`;
+    link.download = `${safeFileName}.doc`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

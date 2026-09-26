@@ -88,33 +88,10 @@ export default function App() {
     applyThemeToDOM(normalizedTheme);
   }, [theme]);
 
-  // Automatic 12-Hour Curriculum & Teaching Data Auto-Reset Runner
+  // Dual Cloud Auto-Sync Runner (Penyimpanan Permanen)
   useEffect(() => {
     // Inisialisasi sinkronisasi otomatis dual cloud (Supabase & GitHub)
     CloudAutoSyncService.init();
-
-    // Jalankan pengecekan dan eksekusi reset 12 jam saat aplikasi dimuat
-    StorageService.checkAndRunAuto12hCurriculumReset();
-
-    // Jalankan pengecekan rutin setiap 1 menit
-    const reset12hInterval = setInterval(() => {
-      StorageService.checkAndRunAuto12hCurriculumReset();
-    }, 60 * 1000);
-
-    return () => clearInterval(reset12hInterval);
-  }, []);
-
-  // Automatic 24-Hour AI Curriculum Data Auto-Purge Runner
-  useEffect(() => {
-    // Jalankan pembersihan saat aplikasi dimuat
-    StorageService.cleanExpiredAIDocuments();
-
-    // Jalankan pengecekan rutin setiap 30 menit
-    const cleanupInterval = setInterval(() => {
-      StorageService.cleanExpiredAIDocuments();
-    }, 30 * 60 * 1000);
-
-    return () => clearInterval(cleanupInterval);
   }, []);
 
   // Sync notifications and token quota periodically & on storage changes
@@ -631,16 +608,22 @@ export default function App() {
                 </button>
               )}
 
-              {/* AI Token Quota */}
+              {/* AI Token Header Display */}
               <button
                 id="btn-ai-token-quota"
                 onClick={() => setShowTokenModal(true)}
-                className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs transition-colors duration-150"
-                title="Status Kuota AMD AI"
+                className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs transition-colors duration-150 cursor-pointer"
+                title="Status Token & Kuota AI (Klik untuk melihat rincian & voucher)"
               >
-                <AMDLogo size="xs" />
+                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
                 <span className="text-[11px] font-semibold text-slate-700">
-                  {tokenQuota.isAdmin ? 'AMD AI: Admin' : `AMD: ${tokenQuota.monthlyRemaining}/${tokenQuota.totalAllowed}`}
+                  {tokenQuota.isAdmin ? (
+                    <span className="text-purple-700 font-bold">Token: Unlimited (Admin)</span>
+                  ) : (
+                    <span>
+                      Token: <strong className="text-emerald-700 font-mono font-bold">{(tokenQuota.dailyTokensRemaining ?? 20000).toLocaleString('id-ID')}</strong> / 20.000
+                    </span>
+                  )}
                 </span>
               </button>
 

@@ -126,14 +126,14 @@ export const CurriculumResetModal: React.FC<CurriculumResetModalProps> = ({
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-base font-bold text-white">Reset & Penyegaran Data Kurikulum</h3>
+                <h3 className="text-base font-bold text-white">Reset & Pembersihan Data Mandiri</h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
-                  <Clock className="w-3 h-3" />
-                  <span>Siklus 12 Jam</span>
+                  <ShieldCheck className="w-3 h-3" />
+                  <span>Penyimpanan Permanen</span>
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5">
-                Reset otomatis berkala setiap 12 jam dan opsi reset manual kurikulum & perangkat.
+                Data kurikulum tersimpan aman selamanya kecuali dihapus atau di-reset sendiri secara sadar oleh pengguna.
               </p>
             </div>
           </div>
@@ -165,57 +165,49 @@ export const CurriculumResetModal: React.FC<CurriculumResetModalProps> = ({
             </div>
           )}
 
-          {/* 1. Status Auto-Reset 12 Jam Card */}
+          {/* 1. Status Penyimpanan Data Permanen Card */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <DatabaseZap className="w-4 h-4 text-blue-600" />
+                <DatabaseZap className="w-4 h-4 text-emerald-600" />
                 <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                  Status Auto-Reset Otomatis (Setiap 12 Jam)
+                  Status Penyimpanan Data: Permanen & Aman
                 </span>
               </div>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200 flex items-center space-x-1">
-                <CheckCircle2 className="w-3 h-3" />
-                <span>Otomatis Berjalan</span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center space-x-1">
+                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                <span>Penyimpanan Permanen Aktif</span>
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-center">
               <div className="p-2.5 bg-white rounded-lg border border-slate-200">
-                <div className="text-[10px] text-slate-500 font-semibold">Hitung Mundur</div>
-                <div className="text-sm font-bold font-mono text-blue-600 mt-0.5">
-                  {stats.hoursRemaining}j {stats.minutesRemaining}m
+                <div className="text-[10px] text-slate-500 font-semibold">Kebijakan Retensi</div>
+                <div className="text-xs font-bold font-mono text-emerald-600 mt-0.5">
+                  Permanen (Selamanya)
                 </div>
-                <div className="text-[9px] text-slate-400">menuju reset berikutnya</div>
+                <div className="text-[9px] text-slate-400">tanpa auto-delete</div>
               </div>
 
               <div className="p-2.5 bg-white rounded-lg border border-slate-200">
-                <div className="text-[10px] text-slate-500 font-semibold">Reset Terakhir</div>
-                <div className="text-xs font-bold font-mono text-slate-800 mt-0.5 truncate" title={stats.lastReset}>
-                  {stats.lastReset}
+                <div className="text-[10px] text-slate-500 font-semibold">Row Level Security</div>
+                <div className="text-xs font-bold font-mono text-slate-800 mt-0.5 truncate">
+                  auth.uid() = user_id
                 </div>
-                <div className="text-[9px] text-slate-400">waktu penyegaran</div>
+                <div className="text-[9px] text-slate-400">isolasi data per akun</div>
               </div>
 
-              <div className="p-2.5 bg-white rounded-lg border border-slate-200">
-                <div className="text-[10px] text-slate-500 font-semibold">Reset Berikutnya</div>
-                <div className="text-xs font-bold font-mono text-slate-800 mt-0.5 truncate" title={stats.nextReset}>
-                  {stats.nextReset}
+              <div className="p-2.5 bg-white rounded-lg border border-slate-200 col-span-2 sm:col-span-1">
+                <div className="text-[10px] text-slate-500 font-semibold">Penghapusan Data</div>
+                <div className="text-xs font-bold font-mono text-slate-800 mt-0.5">
+                  Hanya Manual Pengguna
                 </div>
-                <div className="text-[9px] text-slate-400">jadwal otomatis</div>
-              </div>
-
-              <div className="p-2.5 bg-white rounded-lg border border-slate-200">
-                <div className="text-[10px] text-slate-500 font-semibold">Total Frekuensi</div>
-                <div className="text-sm font-bold font-mono text-slate-800 mt-0.5">
-                  {stats.totalResets} kali
-                </div>
-                <div className="text-[9px] text-slate-400">telah disegarkan</div>
+                <div className="text-[9px] text-slate-400">kendali penuh ada di Anda</div>
               </div>
             </div>
 
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Sistem secara otomatis mengosongkan arsip dokumen perangkat dan menyegarkan data kurikulum setiap 12 jam agar memori aplikasi tetap ringan, cepat, dan siap digunakan untuk perencanaan materi baru.
+              Seluruh data dokumen ajar, RPM, ATP, PROTA, PROSEM, kalender pendidikan, dan administrasi mengajar Anda tersimpan permanen dan tidak akan pernah dihapus secara otomatis oleh sistem.
             </p>
           </div>
 

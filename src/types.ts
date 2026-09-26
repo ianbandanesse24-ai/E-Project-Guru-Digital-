@@ -19,10 +19,17 @@ export interface UserAccount {
   lastLogin?: string;
   avatar?: string;
 
+  // Daily AI Token Limit (20.000 Token / Hari - Reset Otomatis Setiap 00:00 WIB)
+  dailyTokensUsed?: number; // Token terpakai hari ini (maks 20.000)
+  dailyTokensLimit?: number; // Batas harian: 20.000 token/hari
+  dailyAIClicks?: number; // Jumlah klik generate hari ini
+  dailyAILimit?: number; // Batas generate harian
+  lastDailyTokenResetDate?: string; // Tanggal reset harian terakhir (YYYY-MM-DD)
+
   // Monthly AI Quota & Limits (35 Generate / 500.000 Token per Bulan)
   monthlyAIClicks?: number;
   monthlyAILimit?: number; // Default: 35 kali generate/bulan
-  monthlyTokensUsed?: number; // Tracked token usage (up to 500,000)
+  monthlyTokensUsed?: number; // Tracked token usage
   monthlyTokensLimit?: number; // Default: 500,000 tokens/bulan
   billingCycleDay?: number; // Tanggal reset bulanan (sesuai tanggal persetujuan admin, 1-31)
   lastMonthlyResetDate?: string; // YYYY-MM-DD cycle start
@@ -37,15 +44,34 @@ export interface UserAccount {
   subscriptionNotes?: string;
 
   // Extra Bonus & Legacy Daily fields for backwards-compatibility
-  dailyAIClicks?: number;
-  dailyAILimit?: number;
   extraTokens?: number;
   lastTokenResetDate?: string;
   totalAIClicksEver?: number;
   tokenVouchersRedeemed?: string[];
 }
 
+export interface ContextCachingStatus {
+  isEnabled: boolean;
+  ttlSeconds: number;
+  totalCachedTokens: number;
+  totalCacheHits: number;
+  estimatedTokenSavingsPercent: number;
+  lastCacheSync?: string;
+  activeCachedModels: string[];
+}
+
+export interface RowLevelSecurityStatus {
+  isEnforced: boolean;
+  activeUserId: string | null;
+  activeUserRole: string | null;
+  enforcedTables: string[];
+  totalViolationsBlocked: number;
+  lastAuditCheck: string;
+  isCompliant: boolean;
+}
+
 export interface AdminSystemSettings {
+  defaultDailyTokenLimit: number; // 20,000 tokens/day default
   defaultMonthlyQuota: number; // e.g. 35 clicks/month
   defaultMonthlyTokenLimit: number; // e.g. 500,000 tokens
   defaultSubscriptionDurationYears: number; // e.g. 1 year
@@ -53,6 +79,9 @@ export interface AdminSystemSettings {
   preferredModel: string; // e.g. 'gemini-3.8-flash'
   fallbackModel: string; // e.g. 'gemini-2.5-flash'
   deepLearningFrameworkVersion: string;
+  enableContextCaching: boolean; // Fitur Context Caching aktif
+  contextCacheTTLSeconds: number; // Default: 3600 (1 jam)
+  enableRowLevelSecurity: boolean; // Row Level Security (RLS) diaktifkan
   autoSaveEnabled: boolean;
   autoSaveIntervalSeconds: number;
   rpmDefaultFormat: 'rpm_deep_learning_master' | 'modul_sekolah' | 'lengkap';
@@ -98,6 +127,18 @@ export interface TokenVoucher {
 }
 
 export interface TokenQuotaStatus {
+  // Daily Token Quota (20.000 Token / Hari - Reset Otomatis Setiap 00:00 WIB)
+  dailyTokensUsed: number;
+  dailyTokensLimit: number; // Default: 20,000
+  dailyTokensRemaining: number;
+  dailyAIClicks: number;
+  dailyAILimit: number;
+  dailyRemainingClicks: number;
+  dailyResetDate: string;
+  dailyPercentUsed: number;
+  isDailyExhausted: boolean;
+  dailyResetCountdownText: string;
+
   // Monthly Quota Status (35 Generate / 500.000 Token)
   monthlyUsed: number;
   monthlyLimit: number;
@@ -108,7 +149,7 @@ export interface TokenQuotaStatus {
   monthlyResetDate: string;
   billingCycleDay: number;
 
-  // Backwards compatibility / Daily compatibility
+  // Backwards compatibility / General compatibility
   used: number;
   limit: number;
   extra: number;
@@ -117,6 +158,10 @@ export interface TokenQuotaStatus {
   isExhausted: boolean;
   resetDate: string;
   isAdmin: boolean;
+
+  // Context Caching & RLS status for active user
+  isContextCachingActive?: boolean;
+  isRLSEnforced?: boolean;
 
   // 1-Year Subscription Expiration Status
   subscriptionStartDate?: string;
@@ -613,6 +658,7 @@ export interface ActiveMasterCPData {
   deepLearningNotes?: string;
   syncStatus?: 'synced' | 'draft';
   lastSyncedAt?: string;
+  updatedAt?: string;
 }
 
 export type ThemeColorPreset =

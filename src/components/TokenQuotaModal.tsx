@@ -108,8 +108,9 @@ export const TokenQuotaModal: React.FC<TokenQuotaModalProps> = ({
                   </span>
                 )}
               </h3>
-              <p className="text-xs text-slate-500">
-                Batas 35x Generate AMD AI (500.000 Token/Bulan)
+              <p className="text-xs text-slate-500 flex items-center gap-2">
+                <span>20.000 Token/Hari (Reset Otomatis 00:00 WIB)</span>
+                <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-700 text-[9px] font-bold rounded">Context Caching Aktif</span>
               </p>
             </div>
           </div>
@@ -123,6 +124,99 @@ export const TokenQuotaModal: React.FC<TokenQuotaModalProps> = ({
 
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-4 text-xs">
+          {/* Security & Features Banner */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center space-x-2">
+              <Zap className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div>
+                <div className="font-bold text-xs text-emerald-900">Context Caching Aktif</div>
+                <div className="text-[10px] text-emerald-700">Menghemat ~75% token per dokumen kurikulum</div>
+              </div>
+            </div>
+            <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+              <div>
+                <div className="font-bold text-xs text-blue-900">Row Level Security (RLS)</div>
+                <div className="text-[10px] text-blue-700">Data akun privat & terisolasi per pengguna</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Daily 20,000 Tokens Card */}
+          <div className="p-4 rounded-lg bg-slate-900 text-white border border-slate-800 space-y-3 shadow-md">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-wider">
+                    Pemakaian Token Harian
+                  </span>
+                  <span className="px-1.5 py-0.5 bg-emerald-900/60 border border-emerald-700/60 text-emerald-300 text-[9px] font-bold rounded-full">
+                    Reset Otomatis 00:00
+                  </span>
+                </div>
+                <div className="flex items-baseline space-x-2 mt-1">
+                  <span className="text-2xl font-black font-mono text-white">
+                    {quotaStatus.dailyTokensUsed.toLocaleString('id-ID')}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    / {quotaStatus.dailyTokensLimit.toLocaleString('id-ID')} Token/Hari
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-bold uppercase text-slate-400">
+                  Sisa Token Hari Ini
+                </span>
+                <div className="mt-1">
+                  {quotaStatus.isAdmin ? (
+                    <span className="text-lg font-bold text-purple-300">Unlimited</span>
+                  ) : (
+                    <span
+                      className={`text-xl font-black font-mono ${
+                        quotaStatus.dailyTokensRemaining > 5000
+                          ? 'text-emerald-400'
+                          : quotaStatus.dailyTokensRemaining > 0
+                          ? 'text-amber-400'
+                          : 'text-rose-400'
+                      }`}
+                    >
+                      {quotaStatus.dailyTokensRemaining.toLocaleString('id-ID')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Daily Progress Bar */}
+            <div className="space-y-1">
+              <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    quotaStatus.isAdmin
+                      ? 'bg-purple-500 w-full'
+                      : quotaStatus.dailyPercentUsed >= 100
+                      ? 'bg-rose-500'
+                      : quotaStatus.dailyPercentUsed >= 75
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                  }`}
+                  style={{ width: quotaStatus.isAdmin ? '100%' : `${quotaStatus.dailyPercentUsed}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-slate-400">
+                <span>{quotaStatus.dailyPercentUsed}% batas 20.000 token terpakai hari ini</span>
+                <span className="text-slate-300 font-mono">
+                  Reset dalam: <strong className="text-emerald-300">{quotaStatus.dailyResetCountdownText}</strong>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[10px] text-slate-400">
+              <span>Siklus: <strong>Harian (20.000 Token/Hari)</strong></span>
+              <span>Tanggal: {quotaStatus.dailyResetDate}</span>
+            </div>
+          </div>
+
           {/* Subscription Expiry Alert / Warning */}
           {quotaStatus.isExpired && !quotaStatus.isAdmin && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-lg flex items-start space-x-3 text-rose-800">

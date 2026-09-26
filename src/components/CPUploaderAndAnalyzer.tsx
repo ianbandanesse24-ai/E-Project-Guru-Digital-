@@ -408,38 +408,39 @@ export const CPUploaderAndAnalyzer: React.FC<CPUploaderAndAnalyzerProps> = ({
 
       // CLIENT-SIDE EXPERT FALLBACK ENGINE (Jika server offline / GitHub Pages)
       if (!resData) {
-        const matchingPreset = SUBJECT_MATERIAL_PRESETS.find(
-          (p) =>
-            p.subject.toLowerCase() === subject.toLowerCase() &&
-            (level === 'ALL' || p.level === level)
-        ) || SUBJECT_MATERIAL_PRESETS[0];
+        const fallbackSubject = subject || 'Mata Pelajaran Umum';
+        const fallbackLevel = level || 'SMA';
+        const fallbackGrade = grade || 10;
+        const fallbackPhase = phase || 'E';
+        const fallbackTotalHours = totalHoursPerYear || 108;
+        const fallbackJp = jpPerWeek || 3;
 
         resData = {
           identifiedMetadata: {
-            subject: subject || matchingPreset.subject,
-            level: level || matchingPreset.level,
-            grade: grade || matchingPreset.grade,
-            phase: phase || matchingPreset.phase,
-            totalHoursPerYear: totalHoursPerYear || matchingPreset.totalHoursPerYear,
-            jpPerWeek: jpPerWeek || matchingPreset.jpPerWeek || 3,
+            subject: fallbackSubject,
+            level: fallbackLevel,
+            grade: fallbackGrade,
+            phase: fallbackPhase,
+            totalHoursPerYear: fallbackTotalHours,
+            jpPerWeek: fallbackJp,
           },
-          elements: matchingPreset.elements || [
+          elements: [
             {
               name: 'Pemahaman Konsep',
-              description: `Menguasai konsep esensial dan prinsip inti ${subject}.`,
+              description: `Menguasai konsep esensial dan prinsip inti ${fallbackSubject}.`,
               competencies: ['Menganalisis konsep esensial', 'Mengevaluasi fenomena kontekstual'],
-              essentialMaterials: [`Materi Pokok Inti ${subject}`],
+              essentialMaterials: [`Materi Pokok Inti ${fallbackSubject}`],
             },
             {
               name: 'Keterampilan Proses',
-              description: `Menerapkan metode penyelidikan ilmiah dan penyelesaian masalah ${subject}.`,
+              description: `Menerapkan metode penyelidikan ilmiah dan penyelesaian masalah ${fallbackSubject}.`,
               competencies: ['Merancang eksperimen/karya inovatif', 'Mengomunikasikan hasil investigasi'],
-              essentialMaterials: [`Proyek Pembelajaran Inovatif ${subject}`],
+              essentialMaterials: [`Proyek Pembelajaran Inovatif ${fallbackSubject}`],
             },
           ],
-          materialsSem1: matchingPreset.materialsSem1,
-          materialsSem2: matchingPreset.materialsSem2,
-          executiveSummary: rawTextContent.substring(0, 350) || matchingPreset.cpSummary,
+          materialsSem1: [`Bab 1: Dasar & Konsep Esensial ${fallbackSubject}`, `Bab 2: Pendalaman Materi ${fallbackSubject}`],
+          materialsSem2: [`Bab 3: Penerapan & Analisis ${fallbackSubject}`, `Bab 4: Evaluasi & Proyek Akhir ${fallbackSubject}`],
+          executiveSummary: rawTextContent ? rawTextContent.substring(0, 350) : `Capaian Pembelajaran resmi mata pelajaran ${fallbackSubject} Fase ${fallbackPhase}.`,
           kktpSummary: 'Interval Ketuntasan: 0-40% (Perlu Bimbingan Khusus), 41-65% (Cukup/Remedial), 66-85% (Baik/Tuntas), 86-100% (Sangat Baik/Pengayaan).',
         };
       }

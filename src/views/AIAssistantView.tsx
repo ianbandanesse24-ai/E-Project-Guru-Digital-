@@ -613,7 +613,7 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({ initialDocType
 
   const docTypesList = [
     { id: 'analisis_alokasi_waktu', label: '0. Analisis Alokasi Waktu (Sem 1 & 2)', icon: Calendar, desc: 'Perhitungan RBE Berbasis Kalender Pendidikan', badge: 'Kaldik' },
-    { id: 'analisis_cp', label: '1. Analisis CP Terbaru', icon: FileSearch, desc: 'Pemetaan Elemen & Dimensi Deep Learning' },
+    { id: 'analisis_cp', label: '1. Analisis & Distribusi CP Terbaru', icon: FileSearch, desc: 'Dekomposisi Elemen CP & Matriks Distribusi Per Semester (1 & 2)', badge: 'Distribusi CP' },
     { id: 'tp', label: '2. Tujuan Pembelajaran (TP)', icon: Target, desc: 'Rumusan Kompetensi & Materi KKO' },
     { id: 'atp', label: '3. Alur Tujuan Pembelajaran (ATP)', icon: GitMerge, desc: 'Urutan Logis Tahapan & Alokasi Jam (JP)' },
     { id: 'prota', label: '4. Program Tahunan (PROTA)', icon: CalendarRange, desc: 'Distribusi Alokasi Waktu Semester 1 & 2' },
@@ -2464,57 +2464,6 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({ initialDocType
               />
             )}
 
-            {/* Token Quota Meter & Status Badge */}
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between gap-2">
-              <div className="flex items-center space-x-2.5 min-w-0">
-                <div
-                  className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
-                    quotaStatus.isAdmin
-                      ? 'bg-purple-100 text-purple-700'
-                      : quotaStatus.isExpired || quotaStatus.isExhausted
-                      ? 'bg-rose-100 text-rose-700'
-                      : quotaStatus.monthlyRemaining > 5
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-amber-100 text-amber-700'
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                    <span>Kuota AI Bulan Ini:</span>
-                    {quotaStatus.isAdmin ? (
-                      <span className="text-purple-700 font-bold">Unlimited (Admin)</span>
-                    ) : quotaStatus.isExpired ? (
-                      <span className="text-rose-600 font-bold">Masa Aktif Berakhir</span>
-                    ) : (
-                      <span className="font-mono font-bold text-slate-900">
-                        {quotaStatus.monthlyRemaining} / {quotaStatus.totalAllowed} Generate
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-slate-500 truncate">
-                    {quotaStatus.isAdmin
-                      ? 'Akses penuh tanpa batas (Admin)'
-                      : quotaStatus.isExpired
-                      ? `Jatuh tempo: ${quotaStatus.subscriptionExpiryDate}`
-                      : quotaStatus.isExpiringSoon
-                      ? `Jatuh tempo ${quotaStatus.daysUntilExpiry} hari lagi (${quotaStatus.subscriptionExpiryDate})`
-                      : `35x/bln • Reset tiap tgl ${quotaStatus.billingCycleDay || 1}${quotaStatus.extra > 0 ? ` • +${quotaStatus.extra} Bonus` : ''}`}
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowTokenModal(true)}
-                className="px-2.5 py-1 rounded-md bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[11px] font-semibold shrink-0 flex items-center space-x-1 transition"
-              >
-                <Gift className="w-3.5 h-3.5 text-amber-600" />
-                <span>Info & Voucher</span>
-              </button>
-            </div>
-
             {/* Generate Trigger Button */}
             <button
               id="btn-generate-ai"
@@ -2612,14 +2561,14 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({ initialDocType
                 <div>
                   <div className="flex items-center space-x-2">
                     <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                      Riwayat & Arsip Unduh Ulang Perangkat Ajar (24 Jam)
+                      Riwayat & Arsip Unduh Ulang Perangkat Ajar (Penyimpanan Permanen)
                     </h3>
                     <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
                       {aiDocs.length} Dokumen
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 mt-0.5">
-                    Hasil generate perangkat ajar 1 hari terakhir yang siap diunduh ulang langsung ke format Word, PDF, atau Excel.
+                    Hasil generate perangkat ajar tersimpan permanen dan siap diunduh ulang langsung ke format Word, PDF, atau Excel kapan saja.
                   </p>
                 </div>
               </div>
@@ -2658,9 +2607,9 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({ initialDocType
                 </div>
 
                 {/* Info Badge */}
-                <div className="flex items-center space-x-1.5 text-[11px] text-amber-900 bg-amber-100/70 border border-amber-200 px-3 py-1.5 rounded-lg shrink-0">
-                  <Clock className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Siklus retensi 24 jam menjaga performa memori.</span>
+                <div className="flex items-center space-x-1.5 text-[11px] text-emerald-900 bg-emerald-100/70 border border-emerald-200 px-3 py-1.5 rounded-lg shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Penyimpanan Permanen: Data tidak dihapus kecuali oleh Anda sendiri.</span>
                 </div>
               </div>
 
@@ -2729,11 +2678,11 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({ initialDocType
                       </div>
                       <div className="space-y-1">
                         <h4 className="text-sm font-bold text-slate-800">
-                          {aiDocs.length === 0 ? 'Belum Ada Dokumen dalam 24 Jam Terakhir' : 'Tidak Ada Dokumen yang Sesuai Filter'}
+                          {aiDocs.length === 0 ? 'Belum Ada Dokumen Tersimpan' : 'Tidak Ada Dokumen yang Sesuai Filter'}
                         </h4>
                         <p className="text-xs text-slate-500 max-w-sm mx-auto">
                           {aiDocs.length === 0
-                            ? 'Setiap kali Anda men-generate modul ajar, PROSEM, LKPD, atau CP, salinan otomatis tersimpan di sini selama 24 jam.'
+                            ? 'Setiap kali Anda men-generate modul ajar, PROSEM, LKPD, atau CP, salinan otomatis tersimpan permanen di sini dan tidak akan dihapus kecuali oleh Anda sendiri.'
                             : 'Coba ubah kata kunci pencarian atau pilih kategori filter yang lain.'}
                         </p>
                       </div>
@@ -2742,9 +2691,6 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({ initialDocType
                 }
 
                 return filtered.map((doc) => {
-                  const docTimestamp = StorageService.parseAIDocTimestamp(doc);
-                  const ageHours = Math.round(((Date.now() - docTimestamp) / (1000 * 60 * 60)) * 10) / 10;
-                  const hoursRemaining = Math.max(0, Math.round((24 - ageHours) * 10) / 10);
                   const isCopied = historyCopiedId === doc.id;
                   const charCount = doc.content ? doc.content.length : 0;
                   const estPages = Math.max(1, Math.ceil(charCount / 2200));
@@ -2786,9 +2732,9 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({ initialDocType
                           <span>•</span>
                           <span>±{estPages} Halaman ({charCount.toLocaleString()} karakter)</span>
                           <span>•</span>
-                          <span className="font-semibold text-amber-700 flex items-center space-x-1">
-                            <Clock className="w-3 h-3" />
-                            <span>Kadaluwarsa dalam {hoursRemaining} jam</span>
+                          <span className="font-semibold text-emerald-700 flex items-center space-x-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>Tersimpan Permanen (Aman)</span>
                           </span>
                         </div>
                       </div>
@@ -2881,7 +2827,7 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({ initialDocType
                             refreshAiHistory();
                           }}
                           className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-600 border border-transparent hover:border-rose-200 transition"
-                          title="Hapus dari riwayat"
+                          title="Hapus dokumen ini"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -2895,27 +2841,20 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({ initialDocType
             {/* Modal Footer */}
             <div className="p-3 sm:p-4 border-t border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs text-slate-600 font-medium flex items-center space-x-2">
-                <span>Total tersimpan: <strong>{aiDocs.length} dokumen aktif</strong></span>
+                <span>Total tersimpan: <strong>{aiDocs.length} dokumen permanen</strong></span>
                 <span>•</span>
-                <span className="text-slate-500">Siklus otomatis bersihkan dokumen &gt; 24 jam</span>
+                <span className="text-emerald-700 font-semibold">Tersimpan aman selamanya</span>
               </div>
               <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={handleClearExpiredHistory}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold transition"
-                  title="Hapus dokumen yang sudah melewati batas 24 jam"
-                >
-                  Bersihkan &gt; 24 Jam
-                </button>
                 {aiDocs.length > 0 && (
                   <button
                     type="button"
                     onClick={handleClearAllHistory}
-                    className="px-2.5 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-semibold transition"
-                    title="Hapus semua dokumen dari riwayat sementara"
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-semibold transition flex items-center space-x-1"
+                    title="Hapus manual semua dokumen"
                   >
-                    Kosongkan Semua
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Kosongkan Arsip Saya</span>
                   </button>
                 )}
                 <button
