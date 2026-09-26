@@ -576,8 +576,32 @@ app.post('/api/supabase/proxy', async (req, res) => {
       body: textData,
     });
   } catch (err: any) {
-    console.error('Supabase proxy error:', err);
-    res.status(500).json({ error: err.message || 'Gagal menghubungi Supabase lewat proxy server' });
+    const isDnsOrNetwork =
+      err?.code === 'ENOTFOUND' ||
+      err?.cause?.code === 'ENOTFOUND' ||
+      err?.message?.includes('ENOTFOUND') ||
+      err?.message?.includes('fetch failed');
+
+    const hostname = (() => {
+      try {
+        return new URL(req.body?.url).hostname;
+      } catch {
+        return 'supabase.co';
+      }
+    })();
+
+    const userMessage = isDnsOrNetwork
+      ? `Domain Supabase "${hostname}" tidak ditemukan (ENOTFOUND). Proyek mungkin dijeda (paused), belum dibuat, atau salah ketik.`
+      : (err.message || 'Gagal menghubungi Supabase lewat proxy server');
+
+    res.status(502).json({
+      ok: false,
+      status: 502,
+      statusText: 'Bad Gateway',
+      error: userMessage,
+      code: isDnsOrNetwork ? 'SUPABASE_DOMAIN_NOT_FOUND' : 'PROXY_ERROR',
+      body: JSON.stringify({ message: userMessage, error: userMessage }),
+    });
   }
 });
 
@@ -640,10 +664,20 @@ app.post('/api/supabase/test-connection', async (req, res) => {
       message: `Koneksi ke Supabase Cloud berhasil aktif dan terverifikasi (${latencyMs}ms)!`,
     });
   } catch (err: any) {
-    return res.status(500).json({
+    const isDnsOrNetwork =
+      err?.code === 'ENOTFOUND' ||
+      err?.cause?.code === 'ENOTFOUND' ||
+      err?.message?.includes('ENOTFOUND') ||
+      err?.message?.includes('fetch failed');
+
+    const msg = isDnsOrNetwork
+      ? `Domain Supabase tidak ditemukan (ENOTFOUND). Pastikan project Supabase Anda aktif dan tidak dijeda (paused).`
+      : `Gagal menghubungi Supabase: ${err.message}`;
+
+    return res.json({
       success: false,
       latencyMs: Date.now() - startTime,
-      message: `Gagal menghubungi Supabase: ${err.message}`,
+      message: msg,
     });
   }
 });

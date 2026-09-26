@@ -512,7 +512,7 @@ export interface SupabaseConfig {
   apiKey: string;
   autoSync: boolean;
   lastSyncedAt?: string;
-  syncStatus?: 'idle' | 'syncing' | 'success' | 'error';
+  syncStatus?: 'idle' | 'syncing' | 'success' | 'error' | 'disconnected';
   errorMessage?: string;
 }
 

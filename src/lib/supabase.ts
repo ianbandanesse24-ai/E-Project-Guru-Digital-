@@ -28,25 +28,34 @@ export class SupabaseService {
       const saved = localStorage.getItem(SUPABASE_CONFIG_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Otomatis migrasi jika masih menggunakan instance lama
+        // Otomatis migrasi jika masih menggunakan instance lama atau domain yang tidak aktif
         const isOldInstance =
           parsed.url &&
           (parsed.url.includes('cbzooularbymwhoxyaxo') ||
             parsed.url.includes('kydlbpiyfwqrakxomsrx') ||
-            !parsed.url.includes('phbrqacielziyyzxntdn'));
+            parsed.url.includes('swtkglyhwxncywmocbsd') ||
+            !parsed.url.includes('supabase.co'));
 
-        const resolvedUrl = isOldInstance || !parsed.url ? envUrl : parsed.url;
-        const resolvedKey =
-          isOldInstance || (!parsed.apiKey && !parsed.anonKey)
-            ? envKey
-            : parsed.apiKey || parsed.anonKey;
+        if (parsed.syncStatus === 'disconnected' || (parsed.url === '' && parsed.apiKey === '')) {
+          this.cachedConfig = {
+            url: '',
+            apiKey: '',
+            autoSync: false,
+            syncStatus: 'disconnected' as any,
+            errorMessage: undefined,
+          };
+          return this.cachedConfig;
+        }
+
+        const resolvedUrl = isOldInstance ? '' : parsed.url ?? envUrl;
+        const resolvedKey = isOldInstance ? '' : parsed.apiKey || parsed.anonKey || envKey;
 
         this.cachedConfig = {
           url: resolvedUrl,
           apiKey: resolvedKey,
           autoSync: parsed.autoSync ?? true,
           lastSyncedAt: parsed.lastSyncedAt || undefined,
-          syncStatus: parsed.syncStatus || 'idle',
+          syncStatus: parsed.syncStatus || (resolvedUrl ? 'idle' : ('disconnected' as any)),
           errorMessage: parsed.errorMessage || undefined,
         };
 
@@ -61,11 +70,30 @@ export class SupabaseService {
     }
 
     this.cachedConfig = {
-      url: envUrl,
-      apiKey: envKey,
+      url: envUrl || '',
+      apiKey: envKey || '',
       autoSync: true,
-      syncStatus: 'idle',
+      syncStatus: envUrl ? 'idle' : ('disconnected' as any),
     };
+    return this.cachedConfig;
+  }
+
+  /**
+   * Memutuskan koneksi Supabase saat ini dan mengosongkan seluruh kredensial tersimpan
+   */
+  static disconnect(): SupabaseConfig {
+    this.cachedConfig = {
+      url: '',
+      apiKey: '',
+      autoSync: false,
+      syncStatus: 'disconnected' as any,
+      errorMessage: undefined,
+      lastSyncedAt: undefined,
+    };
+    this.clientInstance = null;
+    try {
+      localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(this.cachedConfig));
+    } catch {}
     return this.cachedConfig;
   }
 
@@ -160,9 +188,27 @@ export class SupabaseService {
                     statusText: proxyData.statusText || 'OK',
                     headers: new Headers(proxyData.headers || {}),
                   });
+                } else {
+                  const proxyErrData = await proxyRes.json().catch(() => ({}));
+                  const errMsg = proxyErrData?.error || 'Gagal menghubungi Supabase Cloud (Domain tidak terjangkau).';
+                  return new Response(
+                    JSON.stringify({ message: errMsg, error: errMsg, code: proxyErrData?.code || 'SUPABASE_UNAVAILABLE' }),
+                    {
+                      status: proxyRes.status || 502,
+                      statusText: proxyRes.statusText || 'Bad Gateway',
+                      headers: new Headers({ 'Content-Type': 'application/json' }),
+                    }
+                  );
                 }
               } catch (proxyErr) {
                 console.warn('Proxy fallback notice:', proxyErr);
+                return new Response(
+                  JSON.stringify({ message: 'Gagal terhubung ke Supabase proxy server.', error: 'PROXY_UNAVAILABLE' }),
+                  {
+                    status: 502,
+                    headers: new Headers({ 'Content-Type': 'application/json' }),
+                  }
+                );
               }
             }
             throw err;
@@ -170,6 +216,18 @@ export class SupabaseService {
         },
       },
     });
+  }
+
+  /**
+   * Mengembalikan konfigurasi Supabase ke nilai default resmi
+   */
+  static resetToDefault(): SupabaseConfig {
+    this.cachedConfig = null;
+    this.clientInstance = null;
+    try {
+      localStorage.removeItem(SUPABASE_CONFIG_KEY);
+    } catch {}
+    return this.getConfig();
   }
 
   static getClient(): SupabaseClient | null {
@@ -679,6 +737,159 @@ export class SupabaseService {
       return {
         success: false,
         message: `Sinkronisasi gagal: ${err?.message || 'Periksa apakah skema tabel Supabase telah dijalankan.'}`,
+      };
+    }
+  }
+
+  /**
+   * Mengambil data dari Supabase Cloud dan menyelaraskan ke penyimpanan lokal
+   */
+  static async pullAllFromSupabase(): Promise<{
+    success: boolean;
+    message: string;
+    stats?: Record<string, number>;
+  }> {
+    const client = this.getClient();
+    if (!client) {
+      return {
+        success: false,
+        message: 'Supabase client belum terkonfigurasi. Masukkan URL dan Anon Key terlebih dahulu.',
+      };
+    }
+
+    try {
+      const stats: Record<string, number> = {};
+
+      // 1. School Profile
+      const { data: profileData } = await client.from('school_profile').select('*').limit(1);
+      if (profileData && profileData.length > 0) {
+        const p = profileData[0];
+        StorageService.saveSchoolProfile({
+          schoolName: p.school_name,
+          npsn: p.npsn,
+          address: p.address,
+          headmasterName: p.headmaster_name,
+          headmasterNip: p.headmaster_nip,
+          teacherName: p.teacher_name,
+          teacherNip: p.teacher_nip,
+          city: p.city,
+          semester: p.semester,
+          academicYear: p.academic_year,
+          logoUrl: p.logo_url,
+        });
+        stats['school_profile'] = 1;
+      }
+
+      // 2. Classes
+      const { data: classesData } = await client.from('classes').select('*');
+      if (classesData && classesData.length > 0) {
+        const mapped = classesData.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          level: c.level || 'Fase E',
+          grade: c.grade || 10,
+          academicYear: c.academic_year || '2026/2027',
+          homeroomTeacher: c.homeroom_teacher || '',
+        }));
+        StorageService.saveClasses(mapped);
+        stats['classes'] = mapped.length;
+      }
+
+      // 3. Students
+      const { data: studentsData } = await client.from('students').select('*');
+      if (studentsData && studentsData.length > 0) {
+        const mapped = studentsData.map((s: any) => ({
+          id: s.id,
+          nis: s.nis || '',
+          nisn: s.nisn || '',
+          name: s.name,
+          gender: s.gender || 'L',
+          classId: s.class_id || '',
+          className: s.class_name || '',
+          parentPhone: s.parent_phone || '',
+          parentName: s.parent_name || '',
+          address: s.address || '',
+        }));
+        StorageService.saveStudents(mapped);
+        stats['students'] = mapped.length;
+      }
+
+      // 4. Schedules
+      const { data: schedulesData } = await client.from('schedules').select('*');
+      if (schedulesData && schedulesData.length > 0) {
+        const mapped = schedulesData.map((sc: any) => ({
+          id: sc.id,
+          day: sc.day,
+          period: sc.period || '1-2',
+          startTime: sc.start_time || '07:30',
+          endTime: sc.end_time || '09:00',
+          className: sc.class_name,
+          subject: sc.subject,
+          room: sc.room || '',
+          notes: sc.notes || '',
+        }));
+        StorageService.saveSchedule(mapped);
+        stats['schedules'] = mapped.length;
+      }
+
+      // 5. Agendas
+      const { data: agendasData } = await client.from('teaching_agendas').select('*');
+      if (agendasData && agendasData.length > 0) {
+        const mapped = agendasData.map((a: any) => ({
+          id: a.id,
+          date: a.date,
+          time: a.time || '07:30 - 09:00',
+          className: a.class_name,
+          subject: a.subject,
+          meetingNumber: a.meeting_number || 1,
+          topic: a.topic || '',
+          activities: a.activities || '',
+          studentAttendanceSummary: a.student_attendance_summary || '',
+          reflection: a.reflection || '',
+          followUp: a.follow_up || '',
+          status: a.status || 'Selesai',
+        }));
+        StorageService.saveAgenda(mapped);
+        stats['teaching_agendas'] = mapped.length;
+      }
+
+      // 6. Journals
+      const { data: journalsData } = await client.from('teaching_journals').select('*');
+      if (journalsData && journalsData.length > 0) {
+        const mapped = journalsData.map((j: any) => ({
+          id: j.id,
+          date: j.date,
+          className: j.class_name,
+          subject: j.subject,
+          tpCovered: j.tp_covered || '',
+          learningProgress: j.learning_progress || '',
+          obstacles: j.obstacles || '',
+          solution: j.solution || '',
+          teacherNotes: j.teacher_notes || '',
+          signatureVerified: Boolean(j.signature_verified),
+          meetingNumber: j.meeting_number || 1,
+          followUpPlan: j.follow_up_plan || '',
+        }));
+        StorageService.saveJournal(mapped);
+        stats['teaching_journals'] = mapped.length;
+      }
+
+      const now = new Date().toLocaleString('id-ID');
+      this.saveConfig({
+        syncStatus: 'success',
+        lastSyncedAt: now,
+        errorMessage: undefined,
+      });
+
+      return {
+        success: true,
+        message: `Berhasil mengunduh dan menyinkronkan data dari Supabase Cloud! (${now})`,
+        stats,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Gagal menarik data dari Supabase: ${err.message}`,
       };
     }
   }
@@ -1208,19 +1419,65 @@ ALTER TABLE public.ai_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cp_distributions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.access_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow All school_profile" ON public.school_profile FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All users" ON public.users FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All classes" ON public.classes FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All students" ON public.students FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All attendance_records" ON public.attendance_records FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All schedules" ON public.schedules FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All teaching_agendas" ON public.teaching_agendas FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All teaching_journals" ON public.teaching_journals FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All daily_grades" ON public.daily_grades FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All unified_grades" ON public.unified_grades FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All ai_documents" ON public.ai_documents FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All cp_distributions" ON public.cp_distributions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All access_logs" ON public.access_logs FOR ALL USING (true) WITH CHECK (true);
+-- Kebijakan Akses (Idempotent: Drop if exists then Create)
+DROP POLICY IF EXISTS "Allow All school_profile" ON public.school_profile;
+CREATE POLICY "Allow All school_profile" ON public.school_profile FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All users" ON public.users;
+CREATE POLICY "Allow All users" ON public.users FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All classes" ON public.classes;
+CREATE POLICY "Allow All classes" ON public.classes FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All students" ON public.students;
+CREATE POLICY "Allow All students" ON public.students FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All attendance_records" ON public.attendance_records;
+CREATE POLICY "Allow All attendance_records" ON public.attendance_records FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All schedules" ON public.schedules;
+CREATE POLICY "Allow All schedules" ON public.schedules FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All teaching_agendas" ON public.teaching_agendas;
+CREATE POLICY "Allow All teaching_agendas" ON public.teaching_agendas FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All teaching_journals" ON public.teaching_journals;
+CREATE POLICY "Allow All teaching_journals" ON public.teaching_journals FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All daily_grades" ON public.daily_grades;
+CREATE POLICY "Allow All daily_grades" ON public.daily_grades FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All unified_grades" ON public.unified_grades;
+CREATE POLICY "Allow All unified_grades" ON public.unified_grades FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All ai_documents" ON public.ai_documents;
+CREATE POLICY "Allow All ai_documents" ON public.ai_documents FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All cp_distributions" ON public.cp_distributions;
+CREATE POLICY "Allow All cp_distributions" ON public.cp_distributions FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow All access_logs" ON public.access_logs;
+CREATE POLICY "Allow All access_logs" ON public.access_logs FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+-- 15. HAK AKSES API SUPABASE (GRANT PRIVILEGES)
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+
+-- 16. INDEX UNTUK PERFORMA QUERY CEPAT
+CREATE INDEX IF NOT EXISTS idx_students_class_id ON public.students(class_id);
+CREATE INDEX IF NOT EXISTS idx_students_class_name ON public.students(class_name);
+CREATE INDEX IF NOT EXISTS idx_attendance_date_class ON public.attendance_records(date, class_name);
+CREATE INDEX IF NOT EXISTS idx_schedules_class ON public.schedules(class_name);
+CREATE INDEX IF NOT EXISTS idx_agendas_date ON public.teaching_agendas(date);
+CREATE INDEX IF NOT EXISTS idx_journals_date ON public.teaching_journals(date);
+CREATE INDEX IF NOT EXISTS idx_daily_grades_student ON public.daily_grades(student_id);
+CREATE INDEX IF NOT EXISTS idx_unified_grades_student ON public.unified_grades(student_id);
+CREATE INDEX IF NOT EXISTS idx_ai_docs_tool_type ON public.ai_documents(tool_type);
+CREATE INDEX IF NOT EXISTS idx_cp_dists_subject ON public.cp_distributions(subject);
 `;
   }
 }

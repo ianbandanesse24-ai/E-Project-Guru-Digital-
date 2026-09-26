@@ -114,24 +114,44 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         fetchOptions.body = typeof body.body === 'string' ? body.body : JSON.stringify(body.body);
       }
 
-      const response = await fetch(targetUrl, fetchOptions);
-      const textData = await response.text();
+      try {
+        const response = await fetch(targetUrl, {
+          method: (body.method || 'GET').toUpperCase(),
+          headers: body.headers || {},
+          body: body.body && ['POST', 'PUT', 'PATCH'].includes((body.method || '').toUpperCase())
+            ? (typeof body.body === 'string' ? body.body : JSON.stringify(body.body))
+            : undefined,
+        });
+        const textData = await response.text();
 
-      const resHeaders: Record<string, string> = {};
-      response.headers.forEach((v, k) => {
-        resHeaders[k] = v;
-      });
+        const resHeaders: Record<string, string> = {};
+        response.headers.forEach((v, k) => {
+          resHeaders[k] = v;
+        });
 
-      return new Response(
-        JSON.stringify({
-          ok: response.ok,
-          status: response.status,
-          statusText: response.statusText,
-          headers: resHeaders,
-          body: textData,
-        }),
-        { headers: corsHeaders }
-      );
+        return new Response(
+          JSON.stringify({
+            ok: response.ok,
+            status: response.status,
+            statusText: response.statusText,
+            headers: resHeaders,
+            body: textData,
+          }),
+          { headers: corsHeaders }
+        );
+      } catch (fetchErr: any) {
+        const hostname = parsedUrl.hostname;
+        const msg = `Domain Supabase "${hostname}" tidak dapat dijangkau di Edge Network. Pastikan project Supabase aktif.`;
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            status: 502,
+            error: msg,
+            body: JSON.stringify({ message: msg, error: msg }),
+          }),
+          { status: 502, headers: corsHeaders }
+        );
+      }
     }
 
     // 4. Supabase Connection Test
