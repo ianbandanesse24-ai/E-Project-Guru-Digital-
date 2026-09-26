@@ -43,6 +43,7 @@ import { ActiveMasterCPData, CPMaterialItem, SchoolLevel } from '../types';
 import { ExportService } from '../lib/exportUtils';
 import { CustomFormatSelector, CustomFormatConfig, CustomFormatFile } from '../components/CustomFormatSelector';
 import { UniversalFileParser } from '../lib/universalFileParser';
+import { CPUploaderAndAnalyzer } from '../components/CPUploaderAndAnalyzer';
 import {
   SUBJECT_MATERIAL_PRESETS,
   SubjectPreset,
@@ -58,7 +59,7 @@ export const UploadCPMasterView: React.FC<UploadCPMasterViewProps> = ({ onNaviga
   const currentUser = StorageService.getCurrentUser() || DEFAULT_ADMIN;
   const schoolProfile = StorageService.getSchoolProfile();
 
-  const [activeTab, setActiveTab] = useState<'all' | 'catalog' | 'elements' | 'sem1' | 'sem2' | 'format_sekolah'>('all');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'upload_master' | 'upload_guru' | 'all' | 'elements' | 'sem1' | 'sem2' | 'format_sekolah'>('catalog');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [syncedNotice, setSyncedNotice] = useState<string | null>(null);
@@ -67,6 +68,17 @@ export const UploadCPMasterView: React.FC<UploadCPMasterViewProps> = ({ onNaviga
   const [catalogSearch, setCatalogSearch] = useState('');
   const [showSyncAllModal, setShowSyncAllModal] = useState<boolean>(false);
   const [syncAllResults, setSyncAllResults] = useState<{ totalSynced: number; subjects: string[] } | null>(null);
+
+  // Adopt & Sync Success Modal for Teachers
+  const [adoptedSuccessModal, setAdoptedSuccessModal] = useState<{
+    isOpen: boolean;
+    subject: string;
+    level: string;
+    phase: string;
+    grade: number | string;
+    totalTP: number;
+    hours: number;
+  } | null>(null);
 
   // Custom School Format State (Loaded from localStorage or default)
   const formatUploadInputRef = useRef<HTMLInputElement>(null);
@@ -526,6 +538,177 @@ ${masterCP.kktpSummary || 'Interval Standar Kurikulum Merdeka 0-100%'}\n`;
     setTimeout(() => setSyncedNotice(null), 3500);
   };
 
+  // Download CP Data in JSON Format (Standard E-Project Guru Digital)
+  const handleDownloadJSON = (preset: SubjectPreset | ActiveMasterCPData) => {
+    const exportData = {
+      appName: 'E - Project Guru Digital',
+      documentType: 'CP_MASTER_EXPORT',
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      schoolName: schoolProfile.schoolName || 'Satuan Pendidikan',
+      subject: preset.subject,
+      level: preset.level,
+      grade: preset.grade,
+      phase: preset.phase,
+      totalHoursPerYear: preset.totalHoursPerYear,
+      jpPerWeek: (preset as any).jpPerWeek || 3,
+      cpSummary: (preset as any).cpSummary || (preset as any).cpText || '',
+      elements: preset.elements || [],
+      materialsSem1: preset.materialsSem1 || [],
+      materialsSem2: preset.materialsSem2 || [],
+      kktpSummary: (preset as any).kktpSummary || 'Interval Ketuntasan: 0-40% (Perlu Bimbingan Khusus), 41-65% (Cukup/Remedial), 66-85% (Baik/Tuntas), 86-100% (Sangat Baik/Pengayaan).',
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `CP_${preset.subject}_${preset.level}_${preset.phase}_Kelas_${preset.grade}.json`.replace(/\s+/g, '_');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setSyncedNotice(`File JSON CP "${preset.subject} (${preset.level} ${preset.phase})" berhasil diunduh untuk arsip atau diupload oleh guru!`);
+    setTimeout(() => setSyncedNotice(null), 3500);
+  };
+
+  // Download CP Document in Microsoft Word (.docx/.doc) Format
+  const handleDownloadWord = (preset: SubjectPreset | ActiveMasterCPData) => {
+    const sem1 = preset.materialsSem1 || [];
+    const sem2 = preset.materialsSem2 || [];
+    const totalTP = sem1.length + sem2.length;
+    const elements = preset.elements || [];
+
+    let mdContent = `# ANALISIS RESMI CAPAIAN PEMBELAJARAN (CP) MASTER ACUAN
+**Mata Pelajaran:** ${preset.subject}  
+**Jenjang / Fase / Kelas:** ${preset.level} / ${preset.phase} / Kelas ${preset.grade}  
+**Satuan Pendidikan:** ${schoolProfile.schoolName || 'SMA NEGERI 30 MALUKU TENGAH'}  
+**Alokasi Beban Belajar:** ${preset.totalHoursPerYear} JP/Tahun (${(preset as any).jpPerWeek || 3} JP/Minggu)  
+**Total Target TP:** ${totalTP} Tujuan Pembelajaran  
+
+---
+
+### A. RASIONAL & CAPAIAN PEMBELAJARAN UMUM
+${(preset as any).cpSummary || (preset as any).cpText || ''}
+
+---
+
+### B. DEKOMPOSISI ELEMEN CAPAIAN PEMBELAJARAN
+| No | Elemen CP | Deskripsi Capaian Pembelajaran | Kompetensi Esensial (HOTS) | Materi Pokok Esensial |
+|---|---|---|---|---|
+${elements.map((el, i) => `| ${i + 1} | **${el.name}** | ${el.description} | ${(el.competencies || []).join('; ') || 'Menganalisis prinsip inti'} | ${(el.essentialMaterials || []).join(', ') || `Materi Pokok ${el.name}`} |`).join('\n')}
+
+---
+
+### C. PEMETAAN MATERI & TUJUAN PEMBELAJARAN (SEMESTER 1 - GANJIL)
+| No | Kode TP | Rumusan Tujuan Pembelajaran | Materi Pokok | Elemen CP | Alokasi JP | Pendekatan Deep Learning |
+|---|---|---|---|---|---|---|
+${sem1.map((m, i) => `| ${i + 1} | ${m.tpCode || `TP.${preset.grade}.1.${i+1}`} | ${m.tpName} | ${m.essentialMaterial} | ${m.elementName || '-'} | ${m.allocatedHours} JP | ${m.deepLearningMethod || 'Mindful & Meaningful'} |`).join('\n')}
+
+---
+
+### D. PEMETAAN MATERI & TUJUAN PEMBELAJARAN (SEMESTER 2 - GENAP)
+| No | Kode TP | Rumusan Tujuan Pembelajaran | Materi Pokok | Elemen CP | Alokasi JP | Pendekatan Deep Learning |
+|---|---|---|---|---|---|---|
+${sem2.map((m, i) => `| ${i + 1} | ${m.tpCode || `TP.${preset.grade}.2.${i+1}`} | ${m.tpName} | ${m.essentialMaterial} | ${m.elementName || '-'} | ${m.allocatedHours} JP | ${m.deepLearningMethod || 'Meaningful & Joyful'} |`).join('\n')}
+`;
+
+    ExportService.exportToWord(
+      `Analisis_CP_${preset.subject}_${preset.level}_${preset.phase}`,
+      mdContent,
+      {
+        schoolName: schoolProfile.schoolName,
+        teacherName: schoolProfile.teacherName,
+        teacherNip: schoolProfile.teacherNip,
+        principalName: schoolProfile.principalName,
+        principalNip: schoolProfile.principalNip,
+        academicYear: schoolProfile.academicYear,
+        subject: preset.subject,
+        grade: preset.grade,
+      }
+    );
+  };
+
+  // 1-Click Adopt CP for Teacher with Auto-Sync to all 9 teaching tools
+  const handleAdoptCPForTeacher = (preset: SubjectPreset) => {
+    const sem1Items: CPMaterialItem[] = preset.materialsSem1.map((m, idx) => ({
+      ...m,
+      id: `sem1-${preset.subject.toLowerCase()}-${preset.grade}-${idx + 1}`,
+    }));
+    const sem2Items: CPMaterialItem[] = preset.materialsSem2.map((m, idx) => ({
+      ...m,
+      id: `sem2-${preset.subject.toLowerCase()}-${preset.grade}-${idx + 1}`,
+    }));
+
+    const newMaster: ActiveMasterCPData = {
+      id: `master-${preset.subject.toLowerCase()}-${preset.grade}-${Date.now()}`,
+      fileName: `Dokumen_CP_${preset.subject}_${preset.level}_${preset.phase}.pdf`,
+      fileType: 'application/pdf',
+      fileSize: 1024 * 380,
+      uploadedAt: new Date().toISOString(),
+      level: preset.level,
+      grade: preset.grade,
+      phase: preset.phase,
+      subject: preset.subject,
+      teacherName: schoolProfile.teacherName || currentUser.name,
+      teacherNip: schoolProfile.teacherNip,
+      schoolName: schoolProfile.schoolName,
+      academicYear: schoolProfile.academicYear || '2025/2026',
+      totalHoursPerYear: preset.totalHoursPerYear,
+      jpPerWeek: preset.jpPerWeek || (preset.level === 'SD' ? 4 : 3),
+      cpText: preset.cpSummary,
+      elements: preset.elements || [
+        {
+          name: 'Pemahaman Konsep',
+          description: `Penguasaan konsep dan materi esensial ${preset.subject}`,
+          competencies: ['Menganalisis konsep esensial', 'Mengevaluasi penalaran kritis'],
+          essentialMaterials: [`Materi Pokok ${preset.subject}`],
+        },
+        {
+          name: 'Keterampilan Proses',
+          description: `Penerapan metode penyelidikan dan karya inovatif ${preset.subject}`,
+          competencies: ['Merancang eksperimen/proyek inovasi', 'Mengomunikasikan gagasan'],
+          essentialMaterials: [`Proyek Inovasi ${preset.subject}`],
+        },
+      ],
+      materialsSem1: sem1Items,
+      materialsSem2: sem2Items,
+      executiveSummary: `Analisis resmi Capaian Pembelajaran (CP) untuk mata pelajaran ${preset.subject} Jenjang ${preset.level} (${preset.phase} - Kelas ${preset.grade}). Diperkaya dengan pendekatan Deep Learning (Mindful, Meaningful, Joyful Learning).`,
+      kktpSummary: 'Interval Ketuntasan: 0-40% (Perlu Bimbingan Khusus), 41-65% (Cukup/Remedial Bagian Tertentu), 66-85% (Baik/Tuntas Capaian), 86-100% (Sangat Baik/Pengayaan Mandiri).',
+      syncStatus: 'synced',
+      lastSyncedAt: new Date().toISOString(),
+    };
+
+    StorageService.setActiveMasterCP(newMaster);
+    setMasterCP(newMaster);
+
+    // Update teacher profile so every part of the app aligns to this adopted CP
+    StorageService.saveSchoolProfile({
+      ...schoolProfile,
+      subject: preset.subject,
+      level: preset.level,
+      grade: preset.grade,
+      phase: preset.phase,
+      jpPerWeek: preset.jpPerWeek || (preset.level === 'SD' ? 4 : 3),
+    });
+
+    // Trigger storage dispatch events
+    try {
+      window.dispatchEvent(new Event('master-cp-updated'));
+      window.dispatchEvent(new Event('storage'));
+    } catch {}
+
+    setAdoptedSuccessModal({
+      isOpen: true,
+      subject: preset.subject,
+      level: preset.level,
+      phase: preset.phase,
+      grade: preset.grade,
+      totalTP: preset.materialsSem1.length + preset.materialsSem2.length,
+      hours: preset.totalHoursPerYear,
+    });
+  };
+
   // Filtered materials
   const filterList = (items: CPMaterialItem[]) => {
     if (!searchQuery.trim()) return items;
@@ -707,6 +890,50 @@ ${masterCP.kktpSummary || 'Interval Standar Kurikulum Merdeka 0-100%'}\n`;
         {/* Navigation Tabs */}
         <div className="flex rounded-2xl bg-slate-900 p-1.5 border border-slate-800 text-xs flex-wrap gap-1">
           <button
+            onClick={() => setActiveTab('catalog')}
+            className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
+              activeTab === 'catalog'
+                ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Grid className="w-3.5 h-3.5 text-sky-300" />
+            <span>Katalog Master CP ({SUBJECT_MATERIAL_PRESETS.length} Mapel)</span>
+          </button>
+
+          {currentUser.role === 'admin' && (
+            <button
+              onClick={() => setActiveTab('upload_master')}
+              className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
+                activeTab === 'upload_master'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-indigo-300 hover:text-white bg-indigo-950/40 hover:bg-indigo-900/60'
+              }`}
+            >
+              <UploadCloud className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Upload CP Master (Admin)</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-indigo-500/30 text-indigo-200">
+                AI Pemilah
+              </span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setActiveTab('upload_guru')}
+            className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
+              activeTab === 'upload_guru'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                : 'text-emerald-300 hover:text-white bg-emerald-950/40 hover:bg-emerald-900/60'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Upload & Sinkron CP Saya (Guru)</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-500/30 text-emerald-200">
+              Auto-Sync
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('all')}
             className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
               activeTab === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
@@ -714,17 +941,6 @@ ${masterCP.kktpSummary || 'Interval Standar Kurikulum Merdeka 0-100%'}\n`;
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>Hasil Analisis Mapel Aktif</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('catalog')}
-            className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
-              activeTab === 'catalog'
-                ? 'bg-sky-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Grid className="w-3.5 h-3.5 text-sky-400" />
-            <span>Katalog Master CP ({SUBJECT_MATERIAL_PRESETS.length} Mapel)</span>
           </button>
           <button
             onClick={() => setActiveTab('elements')}
@@ -742,7 +958,7 @@ ${masterCP.kktpSummary || 'Interval Standar Kurikulum Merdeka 0-100%'}\n`;
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>Semester 1 ({totalSem1Hours} JP)</span>
+            <span>Sem 1 ({totalSem1Hours} JP)</span>
           </button>
           <button
             onClick={() => setActiveTab('sem2')}
@@ -751,7 +967,7 @@ ${masterCP.kktpSummary || 'Interval Standar Kurikulum Merdeka 0-100%'}\n`;
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>Semester 2 ({totalSem2Hours} JP)</span>
+            <span>Sem 2 ({totalSem2Hours} JP)</span>
           </button>
           <button
             onClick={() => setActiveTab('format_sekolah')}
@@ -787,6 +1003,111 @@ ${masterCP.kktpSummary || 'Interval Standar Kurikulum Merdeka 0-100%'}\n`;
           />
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* TAB: UPLOAD CP MASTER (ADMIN) - ANALISIS & PEMILAHAN JENJANG/FASE/MAPEL */}
+      {/* ========================================================================= */}
+      {activeTab === 'upload_master' && (
+        <div className="space-y-6">
+          <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 rounded-3xl border border-indigo-500/30 shadow-2xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/30">
+                  <UploadCloud className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-black border border-indigo-500/40 mb-1">
+                    <ShieldCheck className="w-3 h-3 text-indigo-400" />
+                    <span>PANEL RESMI ADMINISTRATOR SEKOLAH</span>
+                  </div>
+                  <h2 className="text-lg font-black text-white">
+                    Upload & Analisis CP Master (Pemilahan Jenjang, Fase & Mapel)
+                  </h2>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab('catalog')}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+              >
+                <Grid className="w-3.5 h-3.5 text-sky-400" />
+                <span>Buka Katalog Master ({SUBJECT_MATERIAL_PRESETS.length} Mapel)</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-4xl">
+              Administrator dapat mengunggah dokumen regulasi Capaian Pembelajaran (CP) Kemdikbudristek (BSKAP 032/H/KR/2024 atau dokumen sekolah). Sistem kecerdasan buatan (AI) akan secara otomatis membedah, memilah, dan menyusun CP berdasarkan <strong>Jenjang (SD, SMP, SMA, SMK)</strong>, <strong>Fase (A s/d F)</strong>, dan <strong>Mata Pelajaran</strong> lengkap dengan elemen capaian, materi pokok, dan distribusi semester ganjil-genap yang siap diunduh oleh guru.
+            </p>
+          </div>
+
+          <CPUploaderAndAnalyzer
+            teacherName={schoolProfile.teacherName || currentUser.name}
+            schoolName={schoolProfile.schoolName}
+            onAnalysisComplete={(masterData) => {
+              setMasterCP(masterData);
+              setActiveTab('all');
+            }}
+            onNavigate={onNavigate}
+            customTitle="Form Upload & Ekstraksi Dokumen CP Master Resmi BSKAP"
+            customDescription="Unggah berkas CP (PDF, Word, Excel, Teks) untuk dianalisis dan dipilah ke repositori sekolah"
+          />
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: UPLOAD & SINKRON CP GURU MANDIRI - SINKRONISASI TOTAL KE 9 PERANGKAT */}
+      {/* ========================================================================= */}
+      {activeTab === 'upload_guru' && (
+        <div className="space-y-6">
+          <div className="p-6 bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 rounded-3xl border border-emerald-500/30 shadow-2xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-lg shadow-emerald-600/30">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black border border-emerald-500/40 mb-1">
+                    <Zap className="w-3 h-3 text-amber-300" />
+                    <span>PORTAL MANDIRI GURU MATA PELAJARAN</span>
+                  </div>
+                  <h2 className="text-lg font-black text-white">
+                    Upload & Sinkronkan CP Milik Guru Mandiri
+                  </h2>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab('catalog')}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <span>Pilih / Download dari Katalog Sekolah</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-4xl">
+              Guru dapat mengunggah berkas CP milik sendiri (PDF, Word, Excel, Teks, Scan) <strong>ATAU</strong> mengunggah berkas <strong>JSON Standar</strong> yang telah diunduh dari tab Katalog Sekolah. Sistem akan mengekstrak elemen, merumuskan Tujuan Pembelajaran (TP), dan <strong>secara otomatis menyinkronkan seluruh 9 perangkat ajar</strong> (Analisis CP, TP, ATP, PROTA, PROSEM, KKTP, RPM / Modul Ajar Deep Learning, LKPD, Rubrik Asesmen & Bundel Lengkap).
+            </p>
+          </div>
+
+          <CPUploaderAndAnalyzer
+            isTeacherMode={true}
+            teacherName={schoolProfile.teacherName || currentUser.name}
+            schoolName={schoolProfile.schoolName}
+            onAnalysisComplete={(masterData) => {
+              setMasterCP(masterData);
+              setAdoptedSuccessModal({
+                isOpen: true,
+                subject: masterData.subject,
+                level: masterData.level,
+                phase: masterData.phase,
+                grade: masterData.grade,
+                totalTP: (masterData.materialsSem1?.length || 0) + (masterData.materialsSem2?.length || 0),
+                hours: masterData.totalHoursPerYear || 108,
+              });
+            }}
+            onNavigate={onNavigate}
+            customTitle="Upload Berkas CP Guru & Sinkronkan ke Semua Perangkat Ajar"
+            customDescription="Pilih berkas CP Anda (PDF / Word / Excel / JSON Standar) untuk langsung menghasilkan 9 perangkat ajar"
+          />
+        </div>
+      )}
 
       {/* UPLOAD FORMAT / TEMPLATE ANALISIS CP CARD (VISIBLE ON PRIMARY VIEWS) */}
       {(activeTab === 'all' || activeTab === 'elements' || activeTab === 'sem1' || activeTab === 'sem2') && (
@@ -1147,38 +1468,62 @@ ${masterCP.kktpSummary || 'Interval Standar Kurikulum Merdeka 0-100%'}\n`;
                     </div>
                   </div>
 
-                  <div className="pt-4 mt-4 border-t border-slate-800/80 flex items-center gap-2">
+                  <div className="pt-3 mt-3 border-t border-slate-800/80 space-y-2">
+                    {/* Primary Button: 🌟 Adopsi & Sinkronkan ke CP Saya */}
                     <button
-                      onClick={() => handleSelectPresetSubject(preset)}
-                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                      onClick={() => handleAdoptCPForTeacher(preset)}
+                      className={`w-full py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition shadow-md ${
                         isActive
-                          ? 'bg-emerald-600 text-white shadow-md'
-                          : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30'
+                          ? 'bg-emerald-600 text-white shadow-emerald-950/40 ring-1 ring-emerald-400/50'
+                          : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-900/30 active:scale-98'
                       }`}
+                      title="Adopsi CP ini ke profil guru Anda dan otomatis sinkronkan ke 9 perangkat ajar"
                     >
                       {isActive ? (
                         <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Sedang Aktif</span>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                          <span>CP Aktif Guru Saya</span>
                         </>
                       ) : (
                         <>
-                          <Zap className="w-3.5 h-3.5 text-amber-300" />
-                          <span>Terapkan Sebagai Master</span>
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                          <span>Terapkan ke CP Saya & Sinkronkan</span>
                         </>
                       )}
                     </button>
 
-                    <button
-                      onClick={() => {
-                        handleSelectPresetSubject(preset);
-                        setActiveTab('all');
-                      }}
-                      className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold border border-slate-700 transition"
-                      title="Lihat Rincian Analisis CP Mapel Ini"
-                    >
-                      Detail Analisis
-                    </button>
+                    {/* Secondary Action Buttons: Download JSON, Word, & Detail Analisis */}
+                    <div className="grid grid-cols-3 gap-1.5 pt-1">
+                      <button
+                        onClick={() => handleDownloadJSON(preset)}
+                        className="py-1.5 px-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-amber-300 hover:text-amber-200 text-[10px] font-bold border border-amber-500/20 hover:border-amber-500/40 transition flex items-center justify-center gap-1"
+                        title="Download file JSON standar untuk diupload di akun guru"
+                      >
+                        <Download className="w-3 h-3 text-amber-400" />
+                        <span>JSON</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDownloadWord(preset)}
+                        className="py-1.5 px-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-indigo-300 hover:text-indigo-200 text-[10px] font-bold border border-indigo-500/20 hover:border-indigo-500/40 transition flex items-center justify-center gap-1"
+                        title="Download format Microsoft Word (.docx)"
+                      >
+                        <FileText className="w-3 h-3 text-indigo-400" />
+                        <span>Word</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          handleSelectPresetSubject(preset);
+                          setActiveTab('all');
+                        }}
+                        className="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-bold border border-slate-700 transition flex items-center justify-center gap-1"
+                        title="Lihat Rincian Analisis CP Mapel Ini"
+                      >
+                        <Eye className="w-3 h-3 text-slate-400" />
+                        <span>Detail</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -1659,6 +2004,108 @@ ${masterCP.kktpSummary || 'Interval Standar Kurikulum Merdeka 0-100%'}\n`;
                 className="w-full sm:w-auto px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition"
               >
                 Tutup & Lanjutkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL SUKSES ADOPSI & SINKRONISASI CP KE 9 PERANGKAT AJAR */}
+      {adoptedSuccessModal && adoptedSuccessModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+          <div className="w-full max-w-2xl bg-slate-900 border border-emerald-500/50 rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 text-left">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center space-x-3.5">
+                <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 rounded-2xl shadow-inner">
+                  <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black border border-emerald-500/40 mb-1">
+                    <span>SINKRONISASI TOTAL 100% SUKSES</span>
+                  </div>
+                  <h3 className="text-lg font-black text-white">
+                    CP {adoptedSuccessModal.subject} Berhasil Diterapkan & Disinkronkan!
+                  </h3>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Jenjang <strong>{adoptedSuccessModal.level}</strong> • <strong>{adoptedSuccessModal.phase}</strong> (Kelas {adoptedSuccessModal.grade}) • <strong>{adoptedSuccessModal.hours} JP/Tahun</strong> ({adoptedSuccessModal.totalTP} Target TP)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAdoptedSuccessModal(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div className="text-[11px] font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-amber-300" />
+                <span>9 Modul Perangkat Ajar Telah Otomatis Terhubung:</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {[
+                  { num: '1', title: 'Analisis CP Terbaru', id: 'ai_analisis_cp' },
+                  { num: '2', title: 'Tujuan Pembelajaran (TP)', id: 'ai_tp' },
+                  { num: '3', title: 'Alur Tujuan (ATP)', id: 'ai_atp' },
+                  { num: '4', title: 'Program Tahunan (PROTA)', id: 'ai_prota' },
+                  { num: '5', title: 'Program Semester (PROSEM)', id: 'ai_prosem' },
+                  { num: '6', title: 'Kriteria Ketuntasan (KKTP)', id: 'ai_kktp' },
+                  { num: '7', title: 'RPM / Modul Ajar Deep Learning', id: 'ai_modul_ajar' },
+                  { num: '8', title: 'Lembar Kerja Siswa (LKPD)', id: 'ai_lkpd' },
+                  { num: '9', title: 'Rubrik Penilaian Terpadu', id: 'ai_rubrik_penilaian' },
+                  { num: '📦', title: 'Bundel 1 Perangkat Lengkap', id: 'ai_bundle' },
+                ].map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2 rounded-xl bg-slate-900 border border-slate-800/80 flex items-center justify-between hover:border-emerald-500/30 transition"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold flex items-center justify-center">
+                        {item.num}
+                      </span>
+                      <span className="text-slate-200 font-medium text-[11px]">{item.title}</span>
+                    </div>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl text-xs text-indigo-200 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span>
+                Profil guru mata pelajaran Anda telah otomatis diselaraskan dengan {adoptedSuccessModal.subject} ({adoptedSuccessModal.phase}). Anda dapat langsung membuat modul ajar atau bundel lengkap!
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                onClick={() => {
+                  setAdoptedSuccessModal(null);
+                  if (onNavigate) onNavigate('ai_modul_ajar');
+                }}
+                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition flex items-center gap-1.5"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Buka RPM / Modul Ajar</span>
+              </button>
+              <button
+                onClick={() => {
+                  setAdoptedSuccessModal(null);
+                  if (onNavigate) onNavigate('ai_bundle');
+                }}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+                <span>Buka Bundel Lengkap</span>
+              </button>
+              <button
+                onClick={() => setAdoptedSuccessModal(null)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
+              >
+                Tutup
               </button>
             </div>
           </div>

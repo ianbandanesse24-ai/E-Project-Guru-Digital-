@@ -66,6 +66,7 @@ const KEYS = {
   TOKEN_VOUCHERS: 'agk_token_vouchers',
   KALENDER_PENDIDIKAN: 'agk_kalender_pendidikan',
   ACTIVE_MASTER_CP: 'agk_active_master_cp',
+  MASTER_CP_CATALOG: 'agk_master_cp_catalog',
   ADMIN_SETTINGS: 'agk_admin_settings',
   AI_CLEANUP_META: 'agk_ai_cleanup_meta',
   CURRICULUM_RESET_META: 'agk_curriculum_reset_meta',
@@ -1515,6 +1516,36 @@ export class StorageService {
   static clearActiveMasterCP(userId?: string): void {
     const key = this.getUserScopedKey(KEYS.ACTIVE_MASTER_CP, userId);
     saveToStorage(key, null);
+  }
+
+  // ==========================================
+  // MASTER CP REPOSITORY & CATALOG (ADMIN & GURU)
+  // ==========================================
+  static getMasterCPCatalog(): ActiveMasterCPData[] {
+    return loadFromStorage<ActiveMasterCPData[]>(KEYS.MASTER_CP_CATALOG, []);
+  }
+
+  static saveMasterCPCatalog(items: ActiveMasterCPData[]): void {
+    saveToStorage(KEYS.MASTER_CP_CATALOG, items || []);
+    try {
+      window.dispatchEvent(new Event('master-cp-catalog-updated'));
+    } catch {}
+  }
+
+  static saveMasterCPItem(item: ActiveMasterCPData): void {
+    const catalog = this.getMasterCPCatalog();
+    const idx = catalog.findIndex((c) => c.id === item.id || (c.subject.toLowerCase() === item.subject.toLowerCase() && c.level === item.level && c.phase === item.phase && Number(c.grade) === Number(item.grade)));
+    if (idx >= 0) {
+      catalog[idx] = { ...item, updatedAt: new Date().toISOString() };
+    } else {
+      catalog.unshift({ ...item, uploadedAt: item.uploadedAt || new Date().toISOString() });
+    }
+    this.saveMasterCPCatalog(catalog);
+  }
+
+  static deleteMasterCPItem(id: string): void {
+    const catalog = this.getMasterCPCatalog().filter((c) => c.id !== id);
+    this.saveMasterCPCatalog(catalog);
   }
 
   static addClass(cls: Omit<ClassRoom, 'id'>, userId?: string): ClassRoom {

@@ -139,6 +139,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       desc: 'Mapel, JP, Bab & TP, Kaldik & RBE Sem 1 & 2',
     },
     {
+      id: 'upload_cp_master',
+      label: 'Katalog & Upload CP Guru',
+      icon: BookOpen,
+      badge: 'Download & Sync',
+      desc: 'Download Master & Upload Mandiri',
+    },
+    {
       id: 'ai_analisis_cp',
       label: '1. Analisis CP Terbaru',
       icon: FileSearch,
